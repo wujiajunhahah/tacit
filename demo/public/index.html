@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tacit Lab</title>
+  <meta name="description" content="A small offline web for testing Tacit, a context harness.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='12.5' fill='none' stroke='%231c1b18' stroke-width='3'/><circle cx='16' cy='16' r='5' fill='%232f6b4f'/></svg>">
+  <link rel="stylesheet" href="assets/base.css">
+  <link rel="stylesheet" href="assets/lab.css">
+</head>
+<body class="lab">
+  <header class="lab-top">
+    <a class="lab-brand" href="index.html">
+      <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><circle cx="16" cy="16" r="12.5" fill="none" stroke="#1c1b18" stroke-width="3"/><circle cx="16" cy="16" r="5" fill="#2f6b4f"/></svg>
+      Tacit Lab
+    </a>
+    <span class="lab-host">static · offline · 127.0.0.1</span>
+  </header>
+
+  <main class="lab-main">
+    <section class="lab-intro">
+      <h1>A small web for testing a context harness.</h1>
+      <p class="lab-lede">Tacit reads the page you are on and how you got there, guesses what you are trying to do, and reshapes the page around it. These pages stand in for the places where that matters most: a search engine, an essay, a social feed and a code repository. Every page is static and served from this machine.</p>
+      <div class="lab-notes">
+        <div>
+          <h2>What Tacit notices</h2>
+          <ul>
+            <li>The search that brought you here</li>
+            <li>The words on the link you followed</li>
+            <li>What you select and copy</li>
+            <li>Where you slow down</li>
+          </ul>
+        </div>
+        <div>
+          <h2>What it does with it</h2>
+          <ul>
+            <li>Marks the passages that answer you</li>
+            <li>Offers jumps and next links, with confidence</li>
+            <li>Folds feed posts, with a reason</li>
+            <li>Hands a context packet to your agent</li>
+          </ul>
+        </div>
+      </div>
+      <p class="lab-run"><code>bun run demo/serve.ts</code><span>serves this lab on port 7777</span></p>
+    </section>
+
+    <section class="lab-flows" aria-labelledby="flows-title">
+      <h2 id="flows-title">Flows</h2>
+      <ul>
+        <li class="lab-flow">
+          <a href="search.html?q=decision+latency">Search "decision latency"</a>
+          <p>Open any result. The query travels with you, so the essay should light up its passages about response time.</p>
+          <span>Seek → Margins</span>
+        </li>
+        <li class="lab-flow">
+          <a href="search.html?q=agent+context+copy+paste">Search "agent context copy paste"</a>
+          <p>Take the feed result. Posts about agents and context stay open; football, recipes and coins fold away, each with a reason.</p>
+          <span>Seek → Murmur</span>
+        </li>
+        <li class="lab-flow">
+          <a href="feed.html">Open the feed</a>
+          <p>Forty posts in X-style markup, then twelve more each time you near the bottom. New posts should be sorted as they arrive.</p>
+          <span>Murmur</span>
+        </li>
+        <li class="lab-flow">
+          <a href="repo.html">Open a repo</a>
+          <p>A README, a file table and a clone command behind the Code button. Install and Quick start are where a newcomer is headed.</p>
+          <span>Codeyard</span>
+        </li>
+        <li class="lab-flow">
+          <a href="article.html">Read the article</a>
+          <p>An essay in eleven sections, about this very idea. Select a sentence and the Jump to suggestions should follow you.</p>
+          <span>Margins</span>
+        </li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="lab-foot"><p>Every person, product and site in this lab is invented. Nothing here talks to the network.</p></footer>
+</body>
+</html>

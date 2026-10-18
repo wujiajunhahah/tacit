@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Seek</title>
+  <meta name="description" content="Seek is a search engine that shows everyone the same results.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%231d2826'/><circle cx='14' cy='14' r='6.5' fill='none' stroke='white' stroke-width='3'/><circle cx='23.5' cy='23.5' r='3' fill='%23d98b2b'/></svg>">
+  <link rel="stylesheet" href="assets/base.css">
+  <link rel="stylesheet" href="assets/seek.css">
+</head>
+<body class="seek" data-state="results">
+  <header class="sk-header">
+    <a class="sk-logo" href="search.html" aria-label="Seek home">seek<span>.</span></a>
+    <form class="sk-form" action="search.html" method="get" role="search">
+      <label class="sr-only" for="q">Search</label>
+      <input id="q" name="q" type="search" autocomplete="off" spellcheck="false">
+      <button type="submit" aria-label="Search"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></svg></button>
+    </form>
+    <nav class="sk-account" aria-label="Account">
+      <a href="settings.html">Settings</a>
+      <a class="sk-signin" href="signin.html">Sign in</a>
+    </nav>
+  </header>
+  <nav class="sk-tabs" aria-label="Search verticals">
+    <a href="search.html" data-tab="all" aria-current="page">All</a>
+    <a href="search.html" data-tab="news">News</a>
+    <a href="search.html" data-tab="discussions">Discussions</a>
+    <a href="search.html" data-tab="code">Code</a>
+    <a href="search.html" data-tab="images">Images</a>
+  </nav>
+
+  <main class="sk-main">
+    <p class="sk-stats" id="stats"></p>
+    <div class="sk-results" id="results"></div>
+    <section class="sk-related" aria-labelledby="related-title">
+      <h2 id="related-title">Related searches</h2>
+      <ul id="related"></ul>
+    </section>
+  </main>
+
+  <div class="sk-home">
+    <span class="sk-logo" aria-hidden="true">seek<span>.</span></span>
+    <form class="sk-form" action="search.html" method="get" role="search">
+      <label class="sr-only" for="q-home">Search</label>
+      <input id="q-home" name="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search the web">
+      <button type="submit" aria-label="Search"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></svg></button>
+    </form>
+    <p class="sk-try">Try <a href="search.html?q=decision+latency">decision latency</a> or <a href="search.html?q=agent+context+copy+paste">agent context copy paste</a></p>
+  </div>
+
+  <footer class="sk-footer">
+    <span>Seek · Results are the same for everyone</span>
+    <nav aria-label="Seek">
+      <a href="help.html">Help</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+    </nav>
+  </footer>
+
+  <script>
+    // Seek's whole index: a static list ranked by naive term overlap with ?q=. Title hits count double.
+    (function () {
+      'use strict';
+
+      var SITES = {
+        margins: {
+          name: 'Margins',
+          host: 'margins.example',
+          mark: '<svg viewBox="0 0 32 32" width="16" height="16"><rect width="32" height="32" rx="7" fill="#1f1c18"/><path d="M10 7v18" stroke="#c98b6b" stroke-width="3"/><path d="M15 11h8M15 16h8M15 21h5" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>',
+        },
+        murmur: {
+          name: 'Murmur',
+          host: 'murmur.example',
+          mark: '<svg viewBox="0 0 32 32" width="16" height="16"><circle cx="16" cy="16" r="15" fill="#c4532d"/><path d="M8.5 17.5c1.6-3.2 3.4-3.2 5 0s3.4 3.2 5 0 3.4-3.2 5 0" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>',
+        },
+        codeyard: {
+          name: 'Codeyard',
+          host: 'example.com',
+          mark: '<svg viewBox="0 0 32 32" width="16" height="16"><rect width="32" height="32" rx="8" fill="#22252a"/><circle cx="11" cy="22" r="3" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="21" cy="10" r="3" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M11 8v11M21 13c0 5-5 5-8.5 7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>',
+        },
+      };
+
+      var RESULTS = [
+        { site: 'margins', path: 'notes › context-harness', href: 'article.html', date: 'Oct 14, 2026',
+          title: 'Notes on a context harness',
+          snippet: 'Why the page you are looking at is already context, and how a harness can keep it: a local ledger, fast calibrated decisions, folding with reasons and an undo you can trust.',
+          keywords: 'context harness agent browser interface essay intent' },
+        { site: 'margins', path: 'notes › context-harness › latency', href: 'article.html#latency-why-400-ms-matters', date: 'Oct 14, 2026',
+          title: 'Latency: why 400 ms matters',
+          snippet: 'Below roughly four hundred milliseconds people stop waiting and start working with a tool. Why decision latency matters more to an interface than raw intelligence, with a budget for one reflex.',
+          keywords: 'response time doherty threshold budget fast milliseconds' },
+        { site: 'margins', path: 'notes › context-harness › system-one', href: 'article.html#system-one-decisions', date: 'Oct 14, 2026',
+          title: 'System One decisions: models that choose instead of write',
+          snippet: 'Most of what an interface decides is multiple choice. Small models that return a calibrated probability for each option can answer before every click.',
+          keywords: 'model calibration probabilities choose fast system one' },
+        { site: 'murmur', path: 'search › agent context', href: 'feed.html',
+          title: 'Murmur: what people are saying about agent context',
+          snippet: 'Builders on copy-pasting whole pages into chatbots, browser agents that forget where you have been, and interfaces that adapt to what you are doing.',
+          keywords: 'agents copy paste chatbot browser posts feed social clipboard' },
+        { site: 'codeyard', path: 'tacit-labs › reflex', href: 'repo.html',
+          title: 'tacit-labs/reflex: Calibrated reflexes for interfaces',
+          snippet: 'Rank a handful of options, get a probability for each, and abstain when the top choice is not clearly ahead. Lexical by default, with an optional model backend and a hard timeout.',
+          keywords: 'decision latency calibration ranking library typescript repo code install' },
+        { site: 'margins', path: 'notes › context-harness › ledger', href: 'article.html#the-context-ledger', date: 'Oct 14, 2026',
+          title: 'The context ledger',
+          snippet: 'Why you opened a page, the search that led there and the sentence you selected, recorded locally and in order, so any agent can read it without asking you again.',
+          keywords: 'memory history privacy local browsing' },
+        { site: 'margins', path: 'notes › context-harness › interfaces', href: 'article.html#why-interfaces-got-old', date: 'Oct 14, 2026',
+          title: 'Why interfaces got old',
+          snippet: 'Every interface was drawn for one kind of reader. Now an agent sits at the same screen and sees nothing unless we copy and paste the page in by hand.',
+          keywords: 'clipboard chatbot' },
+        { site: 'margins', path: 'notes › context-harness › page', href: 'article.html#the-page-is-context', date: 'Oct 14, 2026',
+          title: 'The page is context',
+          snippet: 'The search that led you here, the link you chose and the paragraph you slowed down on say more about your intent than any prompt you will type.',
+          keywords: 'agent browsing' },
+        { site: 'codeyard', path: 'tacit-labs › reflex › docs › latency.md', href: 'repo.html',
+          title: 'docs/latency.md · tacit-labs/reflex',
+          snippet: 'Measuring decision latency in production: how reflex reports p50 and p95 per call, why the model backend gets a hard timeout, and what to log so slow reflexes show up early.',
+          keywords: 'monitoring' },
+        { site: 'murmur', path: 'search › calibration', href: 'feed.html',
+          title: 'Calibrated probabilities · Murmur',
+          snippet: 'Posts about reliability diagrams, temperature scaling and interfaces that say how sure they are before they act.',
+          keywords: 'calibration confidence decision latency posts' },
+        { site: 'margins', path: 'notes › context-harness › folding', href: 'article.html#folding-without-hiding', date: 'Oct 14, 2026',
+          title: 'Folding without hiding',
+          snippet: 'A fold is a collapsed post with a one-line reason attached. How to quiet a feed around your intent without deciding for you what you never see.',
+          keywords: 'filter bubble personalization noise posts' },
+        { site: 'margins', path: 'notes › context-harness › mouse', href: 'article.html#a-brief-history-of-the-mouse', date: 'Oct 14, 2026',
+          title: 'A brief history of the mouse',
+          snippet: 'From a wooden prototype at the Stanford Research Institute to the 1968 demonstration in San Francisco, and why pointing became the grammar of computing.',
+          keywords: 'engelbart demo demos mother history input' },
+        { site: 'margins', path: 'notes › context-harness › undo', href: 'article.html#undo-is-a-promise', date: 'Oct 14, 2026',
+          title: 'Undo is a promise',
+          snippet: 'Interfaces may change shape, but proposed and done must mean the same thing everywhere. Why reversibility lets an adaptive interface be bold.',
+          keywords: 'confirm confirmed state trust' },
+        { site: 'margins', path: 'notes › context-harness › six-people', href: 'article.html#six-people-in-every-conversation', date: 'Oct 14, 2026',
+          title: 'Six people in every conversation',
+          snippet: 'Holmes counted six people whenever two talk. Agents add more versions of each of us, and their guesses should never quietly become consensus.',
+          keywords: 'holmes misunderstanding' },
+        { site: 'margins', path: 'notes › context-harness › os', href: 'article.html#from-browser-to-os', date: 'Oct 14, 2026',
+          title: 'From browser to OS',
+          snippet: 'The browser is where context lives today. Next come files, windows and notifications, and applications that become tools an agent can call.',
+          keywords: 'operating system apps future' },
+      ];
+
+      var RELATED = ['decision latency budget', 'calibrated probabilities interface', 'browser agent context',
+        'copy paste into chatbot', 'doherty threshold', 'mother of all demos 1968'];
+
+      var STOP = new Set(('a about an and are as at be by can do does for from how i in into is it my no not of on or ' +
+        'that the this to we what why with you your').split(' '));
+
+      function stem(word) {
+        if (word.length > 4 && word.slice(-3) === 'ies') return word.slice(0, -3) + 'y';
+        if (word.length > 3 && word.slice(-1) === 's' && word.slice(-2) !== 'ss') return word.slice(0, -1);
+        return word;
+      }
+
+      function terms(text) {
+        return text.toLowerCase().split(/[^a-z0-9]+/).filter(function (w) { return w && !STOP.has(w); }).map(stem);
+      }
+
+      function score(result, query) {
+        var title = new Set(terms(result.title));
+        var body = new Set(terms(result.snippet + ' ' + result.keywords));
+        var total = 0;
+        query.forEach(function (term) {
+          if (title.has(term)) total += 2;
+          else if (body.has(term)) total += 1;
+        });
+        return total;
+      }
+
+      function hash(s) {
+        var h = 0;
+        for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+        return h;
+      }
+
+      function esc(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      function highlight(text, query) {
+        return esc(text).replace(/&[a-z]+;|[A-Za-z0-9]+/g, function (w) {
+          return w.charAt(0) !== '&' && query.has(stem(w.toLowerCase())) ? '<em>' + w + '</em>' : w;
+        });
+      }
+
+      function searchHref(q, tab) {
+        return 'search.html?q=' + encodeURIComponent(q).replace(/%20/g, '+') + (tab && tab !== 'all' ? '&tab=' + tab : '');
+      }
+
+      function renderResult(result, query) {
+        var site = SITES[result.site];
+        return '<div class="sk-result">' +
+          '<div class="sk-source"><span class="sk-favicon" aria-hidden="true">' + site.mark + '</span>' +
+          '<span class="sk-source-text"><span class="sk-site">' + site.name + '</span><cite>' + site.host + ' › ' + esc(result.path) + '</cite></span></div>' +
+          '<h3><a href="' + result.href + '">' + esc(result.title) + '</a></h3>' +
+          '<p class="sk-snippet">' + (result.date ? '<time>' + result.date + '</time> — ' : '') + highlight(result.snippet, query) + '</p>' +
+          '</div>';
+      }
+
+      var params = new URLSearchParams(location.search);
+      var q = (params.get('q') || '').trim();
+      var tab = params.get('tab') || 'all';
+      document.querySelectorAll('input[name="q"]').forEach(function (input) { input.value = q; });
+
+      if (!q) {
+        document.body.setAttribute('data-state', 'home');
+        document.getElementById('q-home').focus();
+        return;
+      }
+
+      document.title = q + ' - Seek';
+      document.querySelectorAll('.sk-tabs a').forEach(function (link) {
+        var name = link.getAttribute('data-tab');
+        link.href = searchHref(q, name);
+        if (name === tab) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
+      });
+
+      var query = new Set(terms(q));
+      var ranked = RESULTS
+        .map(function (result, index) { return { result: result, index: index, score: score(result, query) }; })
+        .sort(function (a, b) { return b.score - a.score || a.index - b.index; })
+        .slice(0, 8);
+      var seed = hash(q.toLowerCase());
+      var count = Math.round((12000 + (seed % 880000)) / 100) * 100;
+      document.getElementById('stats').textContent =
+        'About ' + count.toLocaleString('en-US') + ' results (' + (0.18 + (seed % 37) / 100).toFixed(2) + ' seconds)';
+      var html = ranked[0].score ? '' :
+        '<p class="sk-empty">No exact matches for <strong>' + esc(q) + '</strong>. Showing pages people often open instead.</p>';
+      document.getElementById('results').innerHTML = html + ranked.map(function (r) { return renderResult(r.result, query); }).join('');
+      document.getElementById('related').innerHTML = RELATED
+        .filter(function (text) { return text !== q.toLowerCase(); })
+        .map(function (text) {
+          return '<li><a href="' + searchHref(text) + '"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></svg>' + esc(text) + '</a></li>';
+        })
+        .join('');
+    })();
+  </script>
+</body>
+</html>

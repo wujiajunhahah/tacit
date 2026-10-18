@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Home / Murmur</title>
+  <meta name="description" content="Murmur: what people are talking about right now.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23c4532d'/><path d='M8.5 17.5c1.6-3.2 3.4-3.2 5 0s3.4 3.2 5 0 3.4-3.2 5 0' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'/></svg>">
+  <link rel="stylesheet" href="assets/base.css">
+  <link rel="stylesheet" href="assets/murmur.css">
+</head>
+<body class="murmur" data-page="feed">
+  <div class="m-app">
+<!-- build:nav -->
+    <header class="m-nav" role="banner">
+      <div class="m-nav-inner">
+        <a class="m-logo" href="feed.html" aria-label="Murmur">
+          <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#c4532d"/><path d="M8.5 17.5c1.6-3.2 3.4-3.2 5 0s3.4 3.2 5 0 3.4-3.2 5 0" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>
+        </a>
+        <nav class="m-links" aria-label="Primary">
+          <a href="feed.html" data-nav="home"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.2 12 3.5l8.5 6.7v9.8h-5.5v-6h-6v6H3.5z"/></svg>Home</a>
+          <a href="explore.html" data-nav="explore"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>Explore</a>
+          <a href="notifications.html"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>Notifications</a>
+          <a href="messages.html"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/><path d="m4 6.5 8 6 8-6"/></svg>Messages</a>
+          <a href="bookmarks.html"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3.5h11v17l-5.5-4-5.5 4z"/></svg>Bookmarks</a>
+          <a href="lists.html"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M9 6.5h11M9 12h11M9 17.5h11M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01"/></svg>Lists</a>
+          <a href="profile.html?u=alex_rivera" data-nav="profile"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c1-4 4-6 7.5-6s6.5 2 7.5 6"/></svg>Profile</a>
+          <a href="settings.html"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M8 12h.01M12 12h.01M16 12h.01" stroke-width="2.6"/></svg>More</a>
+        </nav>
+        <a class="m-post" href="feed.html#compose">Post</a>
+        <a class="m-me" href="profile.html?u=alex_rivera">
+          <span class="avatar" aria-hidden="true"></span>
+          <span class="m-me-text"><strong>Alex Rivera</strong><span>@alex_rivera</span></span>
+        </a>
+      </div>
+    </header>
+<!-- /build:nav -->
+    <div class="m-center">
+      <div class="m-colhead">
+        <h1>Home</h1>
+        <nav class="m-tabs" aria-label="Timelines">
+          <a href="feed.html" aria-current="page">For you</a>
+          <a href="feed.html?tab=following">Following</a>
+        </nav>
+      </div>
+      <form class="m-compose" id="compose">
+        <a class="avatar" href="profile.html?u=alex_rivera" aria-label="Alex Rivera"></a>
+        <label class="sr-only" for="compose-text">Post text</label>
+        <textarea id="compose-text" rows="2" placeholder="What's new?"></textarea>
+        <div class="m-compose-bar">
+          <div class="m-compose-tools" aria-hidden="true">
+            <span><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17.5 5-4.5 4 3.5 3-2.5 4.5 3.5"/></svg></span>
+            <span><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 19.5v-6M10 19.5v-15M15 19.5v-9M20 19.5v-4"/></svg></span>
+            <span><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg></span>
+            <span><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.2"/></svg></span>
+          </div>
+          <button type="submit" disabled>Post</button>
+        </div>
+      </form>
+      <main role="main"><div aria-label="Timeline: Your Home Timeline">
+<!-- build:posts -->
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=gusparker_fc"><span>Gus Parker</span></a> <span>@gusparker_fc</span> · <a href="status.html?id=1846099999999999999"><time datetime="2026-10-17T15:56:00.000Z">4m</time></a></div>
+  <div data-testid="tweetText" lang="en">NORTHGATE UNITED IN THE 94TH MINUTE. I am not okay. I will never be okay. Someone check on the man behind me who hugged a stranger and then a police horse.</div>
+  <div role="group"><button data-testid="reply">48</button><button data-testid="retweet">212</button><button data-testid="like">1.9K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=weatherdesk_north"><span>Northport Weather</span></a> <span>@weatherdesk_north</span> · <a href="status.html?id=1846099999999895270"><time datetime="2026-10-17T15:49:00.000Z">11m</time></a></div>
+  <div data-testid="tweetText" lang="en">Heads up, Northport: heavy rain moving in from the coast around 4pm, with gusts up to 60 km/h on the bridges. Leave a little extra time for the evening commute.</div>
+  <div role="group"><button data-testid="reply">6</button><button data-testid="retweet">41</button><button data-testid="like">133</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=theo_ships"><span>Theo Okafor</span></a> <span>@theo_ships</span> · <a href="status.html?id=1846099999999790541"><time datetime="2026-10-17T15:41:00.000Z">19m</time></a></div>
+  <div data-testid="tweetText" lang="en">I copy-pasted 23 pages into a chatbot today. Didn't actually read a single one of them myself.
+
+At some point you have to admit you're not using AI. You're its clipboard.</div>
+  <div role="group"><button data-testid="reply">64</button><button data-testid="retweet">318</button><button data-testid="like">2.5K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=beabakes"><span>Bea Moreno</span></a> <span>@beabakes</span> · <a href="status.html?id=1846099999999685812"><time datetime="2026-10-17T15:34:00.000Z">26m</time></a></div>
+  <div data-testid="tweetText" lang="en">Third attempt at laminated dough. Butter leaked everywhere, the croissants look like small crabs, and I still ate four of them standing over the tray.</div>
+  <div role="group"><button data-testid="reply">22</button><button data-testid="retweet">15</button><button data-testid="like">389</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=hana_latency"><span>Hana Sato</span></a> <span>@hana_latency</span> · <a href="status.html?id=1846099999999581083"><time datetime="2026-10-17T15:26:00.000Z">34m</time></a></div>
+  <div data-testid="tweetText" lang="en">400 ms is the number I keep coming back to. Under it, a suggestion feels like part of your gesture. Over it, it feels like a popup that interrupted you. Same feature, different product.</div>
+  <div role="group"><button data-testid="reply">31</button><button data-testid="retweet">147</button><button data-testid="like">1.1K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=celestegossip"><span>Celeste Vane</span></a> <span>@celestegossip</span> · <a href="status.html?id=1846099999999476354"><time datetime="2026-10-17T15:19:00.000Z">41m</time></a></div>
+  <div data-testid="tweetText" lang="en">So Ava Sterling and Jett Rowan unfollowed each other AND archived the matching tattoo photos?? Within ten minutes of each other?? The group chat is on fire.</div>
+  <div role="group"><button data-testid="reply">380</button><button data-testid="retweet">905</button><button data-testid="like">6.4K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=larkspurcoffee"><span>Larkspur Coffee</span></a> <span>@larkspurcoffee</span> · <a href="status.html?id=1846099999999371625"><time datetime="2026-10-17T15:07:00.000Z">53m</time></a></div>
+  <div data-testid="tweetText" lang="en">New season roast just landed: Ridgeline. Notes of dark cherry, cocoa and a little woodsmoke. 15% off all weekend for subscribers.</div>
+  <div role="group"><button data-testid="reply">3</button><button data-testid="retweet">9</button><button data-testid="like">74</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=mara_builds"><span>Mara Lindqvist</span></a> <span>@mara_builds</span> · <a href="status.html?id=1846099999999266896"><time datetime="2026-10-17T15:02:00.000Z">58m</time></a></div>
+  <div data-testid="tweetText" lang="en">Hot take: the bottleneck for AI agents isn't intelligence, it's context.
+
+My agent can't see the tab I'm on, doesn't know how I got there, has no idea what I tried ten minutes ago. So every session starts from zero and I narrate my own life to it.</div>
+  <div role="group"><button data-testid="reply">87</button><button data-testid="retweet">402</button><button data-testid="like">3.1K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=moonbag_maxi"><span>Moonbag Maxi</span></a> <span>@moonbag_maxi</span> · <a href="status.html?id=1846099999999162167"><time datetime="2026-10-17T14:54:00.000Z">1h</time></a></div>
+  <div data-testid="tweetText" lang="en">$MOONCAT down 40% this week. Diamond paws. We are so back (next week). (Probably.) (Not financial advice.)</div>
+  <div role="group"><button data-testid="reply">57</button><button data-testid="retweet">88</button><button data-testid="like">640</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=ravi_calibrates"><span>Ravi Menon</span></a> <span>@ravi_calibrates</span> · <a href="status.html?id=1846099999999057438"><time datetime="2026-10-17T14:46:00.000Z">1h</time></a></div>
+  <div data-testid="tweetText" lang="en">Calibration check on our link ranker: when it says 0.8 it's right 79% of the time on held-out clicks. When it says 0.95, only 88%. Overconfident at the top, as always. Temperature scaling, here we come.</div>
+  <div role="group"><button data-testid="reply">19</button><button data-testid="retweet">52</button><button data-testid="like">488</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=nicoroams"><span>Nico Hart</span></a> <span>@nicoroams</span> · <a href="status.html?id=1846099999998952709"><time datetime="2026-10-17T14:32:00.000Z">1h</time></a></div>
+  <div data-testid="tweetText" lang="en">Lisbon tip nobody tells you: the old trams are charming, but your calves will do most of the sightseeing. Wear real shoes. Thank me later.</div>
+  <div role="group"><button data-testid="reply">14</button><button data-testid="retweet">30</button><button data-testid="like">512</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=priya_ux"><span>Priya Raman</span></a> <span>@priya_ux</span> · <a href="status.html?id=1846099999998847980"><time datetime="2026-10-17T14:23:00.000Z">1h</time></a></div>
+  <div data-testid="tweetText" lang="en">Interfaces that adapt to what you're doing beat interfaces you have to learn. Spent the afternoon prototyping a reading view that highlights only the paragraphs that answer the search you came from. The rest just fades back.</div>
+  <div role="group"><button data-testid="reply">26</button><button data-testid="retweet">133</button><button data-testid="like">1.3K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=dadjokes_daily"><span>Daily Dad Jokes</span></a> <span>@dadjokes_daily</span> · <a href="status.html?id=1846099999998743251"><time datetime="2026-10-17T14:10:00.000Z">1h</time></a></div>
+  <div data-testid="tweetText" lang="en">I told my computer I needed a break, and it said &quot;No problem, I'll go to sleep.&quot;</div>
+  <div role="group"><button data-testid="reply">12</button><button data-testid="retweet">140</button><button data-testid="like">980</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=olu_runs"><span>Olu Bakare</span></a> <span>@olu_runs</span> · <a href="status.html?id=1846099999998638522"><time datetime="2026-10-17T13:56:00.000Z">2h</time></a></div>
+  <div data-testid="tweetText" lang="en">Ran 10k this morning without stopping for the first time. Lungs on fire, legs made of wet sand, grinning like an idiot. Worth it.</div>
+  <div role="group"><button data-testid="reply">40</button><button data-testid="retweet">12</button><button data-testid="like">702</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=dev_castillo"><span>Dev Castillo</span></a> <span>@dev_castillo</span> · <a href="status.html?id=1846099999998533793"><time datetime="2026-10-17T13:41:00.000Z">2h</time></a></div>
+  <div data-testid="tweetText" lang="en">Browser agents are great right up until they need to know what you already looked at. We keep rebuilding the user's history from scratch inside the prompt, one paste at a time.</div>
+  <div role="group"><button data-testid="reply">18</button><button data-testid="retweet">96</button><button data-testid="like">844</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=kofi_mensah"><span>Kofi Mensah</span></a> <span>@kofi_mensah</span> · <a href="status.html?id=1846099999998429064"><time datetime="2026-10-17T13:29:00.000Z">2h</time></a></div>
+  <div data-testid="tweetText" lang="en">Fast decision models are a different product category. They don't write. They pick one of N options and tell you how sure they are.
+
+That's exactly the shape of most UI decisions: which link, which paragraph, which button.</div>
+  <div role="group"><button data-testid="reply">23</button><button data-testid="retweet">167</button><button data-testid="like">1.4K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=rosaplates"><span>Rosa Lind</span></a> <span>@rosaplates</span> · <a href="status.html?id=1846099999998324335"><time datetime="2026-10-17T13:14:00.000Z">2h</time></a></div>
+  <div data-testid="tweetText" lang="en">A good tomato, flaky salt and olive oil beats most restaurant starters and I will not be taking questions.</div>
+  <div role="group"><button data-testid="reply">61</button><button data-testid="retweet">77</button><button data-testid="like">1.5K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=tess_hoops"><span>Tess Hooper</span></a> <span>@tess_hoops</span> · <a href="status.html?id=1846099999998219606"><time datetime="2026-10-17T13:00:00.000Z">3h</time></a></div>
+  <div data-testid="tweetText" lang="en">Buzzer beater from the corner to force overtime and then we lose by 11. This sport is a prank and I keep falling for it.</div>
+  <div role="group"><button data-testid="reply">33</button><button data-testid="retweet">21</button><button data-testid="like">655</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=lenaf"><span>Lena Fischer</span></a> <span>@lenaf</span> · <a href="status.html?id=1846099999998114877"><time datetime="2026-10-17T12:44:00.000Z">3h</time></a></div>
+  <div data-testid="tweetText" lang="en">Every page you visit carries signal: the query that got you there, the link text you clicked, the sentence you selected. Most software throws all of it away.
+
+Wrote up how a context harness could keep it: <a href="article.html">Notes on a context harness</a></div>
+  <div role="group"><button data-testid="reply">29</button><button data-testid="retweet">211</button><button data-testid="like">1.7K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=kitemobile"><span>Kite Mobile</span></a> <span>@kitemobile</span> · <a href="status.html?id=1846099999998010148"><time datetime="2026-10-17T12:26:00.000Z">3h</time></a></div>
+  <div data-testid="tweetText" lang="en">Meet Kite 3. Two-day battery, a camera that actually works after sunset, and a price that won't keep you up at night either. Preorders open Friday.</div>
+  <div role="group"><button data-testid="reply">8</button><button data-testid="retweet">25</button><button data-testid="like">190</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=elif_demir"><span>Elif Demir</span></a> <span>@elif_demir</span> · <a href="status.html?id=1846099999997905419"><time datetime="2026-10-17T12:07:00.000Z">3h</time></a></div>
+  <div data-testid="tweetText" lang="en">An interface that says &quot;I'm 55% sure, is this what you meant?&quot; is more trustworthy than one that is confidently wrong twice a day. Calibrated probabilities are a UX feature, not just a metric.</div>
+  <div role="group"><button data-testid="reply">17</button><button data-testid="retweet">89</button><button data-testid="like">932</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=yuki_paws"><span>Yuki Mori</span></a> <span>@yuki_paws</span> · <a href="status.html?id=1846099999997800690"><time datetime="2026-10-17T11:49:00.000Z">4h</time></a></div>
+  <div data-testid="tweetText" lang="en">My cat has decided the warm laptop is her emotional support device. I now work from the arm of the couch. We all make sacrifices.</div>
+  <div role="group"><button data-testid="reply">45</button><button data-testid="retweet">60</button><button data-testid="like">2.2K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=jonas_w"><span>Jonas Weber</span></a> <span>@jonas_w</span> · <a href="status.html?id=1846099999997695961"><time datetime="2026-10-17T11:30:00.000Z">4h</time></a></div>
+  <div data-testid="tweetText" lang="en">Unpopular opinion: &quot;just paste it into the chat&quot; is the new &quot;just email it to yourself.&quot; It works. It also means our tools still aren't talking to each other.</div>
+  <div role="group"><button data-testid="reply">38</button><button data-testid="retweet">190</button><button data-testid="like">1.5K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=gusparker_fc"><span>Gus Parker</span></a> <span>@gusparker_fc</span> · <a href="status.html?id=1846099999997591232"><time datetime="2026-10-17T11:08:00.000Z">4h</time></a></div>
+  <div data-testid="tweetText" lang="en">Harbor City's back line today was a revolving door at a shopping mall. Lovely to look at, nobody stopping anything.</div>
+  <div role="group"><button data-testid="reply">26</button><button data-testid="retweet">71</button><button data-testid="like">803</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=quinn_tv"><span>Quinn Abara</span></a> <span>@quinn_tv</span> · <a href="status.html?id=1846099999997486503"><time datetime="2026-10-17T10:49:00.000Z">5h</time></a></div>
+  <div data-testid="tweetText" lang="en">If this season of Coldwater ends on another cliffhanger I am writing a strongly worded letter to a streaming service that does not read letters.</div>
+  <div role="group"><button data-testid="reply">52</button><button data-testid="retweet">44</button><button data-testid="like">1.1K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=sami_k"><span>Sami Kallio</span></a> <span>@sami_k</span> · <a href="status.html?id=1846099999997381774"><time datetime="2026-10-17T10:26:00.000Z">5h</time></a></div>
+  <div data-testid="tweetText" lang="en">Watching my agent politely ask me for context it could have read straight off my screen is the most 2026 experience I've had all week.</div>
+  <div role="group"><button data-testid="reply">21</button><button data-testid="retweet">103</button><button data-testid="like">1.3K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=weatherdesk_north"><span>Northport Weather</span></a> <span>@weatherdesk_north</span> · <a href="status.html?id=1846099999997277045"><time datetime="2026-10-17T10:04:00.000Z">5h</time></a></div>
+  <div data-testid="tweetText" lang="en">First frost of the season tonight for inland areas. If your basil is still outside, this is its farewell tour.</div>
+  <div role="group"><button data-testid="reply">9</button><button data-testid="retweet">63</button><button data-testid="like">410</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=hana_latency"><span>Hana Sato</span></a> <span>@hana_latency</span> · <a href="status.html?id=1846099999997172316"><time datetime="2026-10-17T09:41:00.000Z">6h</time></a></div>
+  <div data-testid="tweetText" lang="en">p95 decision latency dropped from 610 ms to 290 ms after we stopped re-tokenizing the whole page on every scroll event. Profile before you optimize, then profile again.</div>
+  <div role="group"><button data-testid="reply">15</button><button data-testid="retweet">74</button><button data-testid="like">690</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=celestegossip"><span>Celeste Vane</span></a> <span>@celestegossip</span> · <a href="status.html?id=1846099999997067587"><time datetime="2026-10-17T09:19:00.000Z">6h</time></a></div>
+  <div data-testid="tweetText" lang="en">Spotted: a certain pop star leaving last night's premiere through the restaurant kitchen. Sunglasses. At 11pm. Babe, we can still see you.</div>
+  <div role="group"><button data-testid="reply">140</button><button data-testid="retweet">310</button><button data-testid="like">4K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=priya_ux"><span>Priya Raman</span></a> <span>@priya_ux</span> · <a href="status.html?id=1846099999996962858"><time datetime="2026-10-17T08:54:00.000Z">7h</time></a></div>
+  <div data-testid="tweetText" lang="en">Design question I can't shake: if the interface reshapes itself around my intent, how do I know what it hid from me?
+
+Folding needs reasons, not silence.</div>
+  <div role="group"><button data-testid="reply">34</button><button data-testid="retweet">155</button><button data-testid="like">1.4K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=moonbag_maxi"><span>Moonbag Maxi</span></a> <span>@moonbag_maxi</span> · <a href="status.html?id=1846099999996858129"><time datetime="2026-10-17T08:31:00.000Z">7h</time></a></div>
+  <div data-testid="tweetText" lang="en">Me explaining to my landlord that rent is a centralized concept and I've moved to a community-governed payment model (I am not paying rent).</div>
+  <div role="group"><button data-testid="reply">66</button><button data-testid="retweet">240</button><button data-testid="like">2.9K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=wendy_tran"><span>Wendy Tran</span></a> <span>@wendy_tran</span> · <a href="status.html?id=1846099999996753400"><time datetime="2026-10-17T08:08:00.000Z">7h</time></a></div>
+  <div data-testid="tweetText" lang="en">Airport lounge hack: there is no hack. Bring snacks, a scarf and low expectations, in that order.</div>
+  <div role="group"><button data-testid="reply">13</button><button data-testid="retweet">48</button><button data-testid="like">732</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=mara_builds"><span>Mara Lindqvist</span></a> <span>@mara_builds</span> · <a href="status.html?id=1846099999996648671"><time datetime="2026-10-17T07:42:00.000Z">8h</time></a></div>
+  <div data-testid="tweetText" lang="en">The context packet idea is underrated: a compact summary of what you're doing (intent, sources, selections, open questions) handed to whatever agent you use. Portable context instead of yet another chat history.</div>
+  <div role="group"><button data-testid="reply">25</button><button data-testid="retweet">177</button><button data-testid="like">1.2K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=ravi_calibrates"><span>Ravi Menon</span></a> <span>@ravi_calibrates</span> · <a href="status.html?id=1846099999996543942"><time datetime="2026-10-17T07:17:00.000Z">8h</time></a></div>
+  <div data-testid="tweetText" lang="en">Reliability diagrams should be part of every product review for ML features. If the probabilities don't mean anything, don't show them to users.</div>
+  <div role="group"><button data-testid="reply">12</button><button data-testid="retweet">66</button><button data-testid="like">571</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=joelpike"><span>Joel Pike</span></a> <span>@joelpike</span> · <a href="status.html?id=1846099999996439213"><time datetime="2026-10-17T06:49:00.000Z">9h</time></a></div>
+  <div data-testid="tweetText" lang="en">My smart fridge has started judging me. Every time I open it after 10pm it plays a small, disappointed beep.</div>
+  <div role="group"><button data-testid="reply">39</button><button data-testid="retweet">210</button><button data-testid="like">2.7K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=theo_ships"><span>Theo Okafor</span></a> <span>@theo_ships</span> · <a href="status.html?id=1846099999996334484"><time datetime="2026-10-17T06:23:00.000Z">9h</time></a></div>
+  <div data-testid="tweetText" lang="en">Tried an extension that reads how I got to a page and suggests where to go next. First time a &quot;recommended&quot; link felt like it was about me and not about the page.</div>
+  <div role="group"><button data-testid="reply">20</button><button data-testid="retweet">88</button><button data-testid="like">962</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=fernandfield"><span>Fern &amp; Field</span></a> <span>@fernandfield</span> · <a href="status.html?id=1846099999996229755"><time datetime="2026-10-17T05:56:00.000Z">10h</time></a></div>
+  <div data-testid="tweetText" lang="en">Your plants called. They want brighter corners and roomier pots. Repotting kits are back in stock, soil included.</div>
+  <div role="group"><button data-testid="reply">2</button><button data-testid="retweet">6</button><button data-testid="like">58</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=kofi_mensah"><span>Kofi Mensah</span></a> <span>@kofi_mensah</span> · <a href="status.html?id=1846099999996125026"><time datetime="2026-10-17T05:28:00.000Z">10h</time></a></div>
+  <div data-testid="tweetText" lang="en">System 1 vs System 2 for models: most UI decisions are System 1. Which link, which paragraph, which button. You don't need an essay for that. You need a reflex.</div>
+  <div role="group"><button data-testid="reply">27</button><button data-testid="retweet">140</button><button data-testid="like">1.2K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=lenaf"><span>Lena Fischer</span></a> <span>@lenaf</span> · <a href="status.html?id=1846099999996020297"><time datetime="2026-10-17T04:59:00.000Z">11h</time></a></div>
+  <div data-testid="tweetText" lang="en">Agents don't need more instructions. They need to know where you are and what you were doing a minute ago.</div>
+  <div role="group"><button data-testid="reply">44</button><button data-testid="retweet">380</button><button data-testid="like">3.4K</button></div>
+</article>
+<article data-testid="tweet" role="article" tabindex="0">
+  <div data-testid="User-Name"><a href="profile.html?u=beabakes"><span>Bea Moreno</span></a> <span>@beabakes</span> · <a href="status.html?id=1846099999995915568"><time datetime="2026-10-17T04:30:00.000Z">11h</time></a></div>
+  <div data-testid="tweetText" lang="en">Made a 20-minute miso butter pasta tonight and I'm genuinely not sure I'll ever cook anything else. Recipe in the replies if anyone wants it.</div>
+  <div role="group"><button data-testid="reply">58</button><button data-testid="retweet">95</button><button data-testid="like">1.9K</button></div>
+</article>
+<!-- /build:posts -->
+        </div>
+        <div class="m-more">
+          <button id="show-more" type="button">Show more posts</button>
+          <p id="caught-up" hidden>You're all caught up.</p>
+        </div>
+      </main>
+    </div>
+<!-- build:side -->
+    <aside class="m-side" aria-label="Trends and suggestions">
+      <div class="m-side-inner">
+        <form class="m-search" action="explore.html" role="search">
+          <label class="sr-only" for="m-search-q">Search Murmur</label>
+          <input id="m-search-q" type="search" name="q" placeholder="Search Murmur" autocomplete="off">
+        </form>
+        <section class="m-card" aria-labelledby="m-trends-title">
+          <h2 id="m-trends-title">What's happening</h2>
+          <a class="m-trend" href="explore.html?q=Northgate+United"><span>Football · Trending</span><strong>Northgate United</strong><span>12.4K posts</span></a>
+          <a class="m-trend" href="explore.html?q=%23SourdoughSunday"><span>Food &amp; Drink · Trending</span><strong>#SourdoughSunday</strong><span>3,180 posts</span></a>
+          <a class="m-trend" href="explore.html?q=Ava+Sterling"><span>Entertainment · Trending</span><strong>Ava Sterling</strong><span>48.1K posts</span></a>
+          <a class="m-trend" href="explore.html?q=storm+warning"><span>Weather · Live</span><strong>Coastal storm warning</strong><span>2,045 posts</span></a>
+          <a class="m-trend" href="explore.html?q=%24MOONCAT"><span>Crypto · Trending</span><strong>$MOONCAT</strong><span>9,022 posts</span></a>
+          <a class="m-card-more" href="explore.html">Show more</a>
+        </section>
+        <section class="m-card" aria-labelledby="m-follow-title">
+          <h2 id="m-follow-title">Who to follow</h2>
+          <div class="m-follow-row">
+            <a class="avatar" href="profile.html?u=hana_latency" aria-label="Hana Sato"></a>
+            <div class="m-follow-who"><a href="profile.html?u=hana_latency">Hana Sato</a><span>@hana_latency</span></div>
+            <button type="button">Follow</button>
+          </div>
+          <div class="m-follow-row">
+            <a class="avatar" href="profile.html?u=larkspurcoffee" aria-label="Larkspur Coffee"></a>
+            <div class="m-follow-who"><a href="profile.html?u=larkspurcoffee">Larkspur Coffee</a><span>@larkspurcoffee</span></div>
+            <button type="button">Follow</button>
+          </div>
+          <div class="m-follow-row">
+            <a class="avatar" href="profile.html?u=gusparker_fc" aria-label="Gus Parker"></a>
+            <div class="m-follow-who"><a href="profile.html?u=gusparker_fc">Gus Parker</a><span>@gusparker_fc</span></div>
+            <button type="button">Follow</button>
+          </div>
+          <a class="m-card-more" href="explore.html?people=1">Show more</a>
+        </section>
+        <p class="m-legal"><a href="terms.html">Terms of Service</a><a href="privacy.html">Privacy Policy</a><a href="cookies.html">Cookie Policy</a><a href="accessibility.html">Accessibility</a><span>© 2026 Murmur</span></p>
+      </div>
+    </aside>
+<!-- /build:side -->
+  </div>
+  <script src="assets/posts.js"></script>
+  <script src="assets/murmur.js"></script>
+  <script>
+    // Infinite scroll: within 600px of the bottom, append the next batch of posts, three batches at most.
+    (function () {
+      'use strict';
+      var timeline = document.querySelector('[aria-label="Timeline: Your Home Timeline"]');
+      var button = document.getElementById('show-more');
+      var caughtUp = document.getElementById('caught-up');
+      var batches = Math.ceil(Murmur.more.length / Murmur.batchSize);
+      var loaded = 0;
+
+      function loadMore() {
+        if (loaded >= batches) return;
+        var batch = Murmur.more.slice(loaded * Murmur.batchSize, (loaded + 1) * Murmur.batchSize);
+        timeline.insertAdjacentHTML('beforeend', '\n' + batch.map(Murmur.render).join('\n') + '\n');
+        loaded += 1;
+        if (loaded >= batches) {
+          button.hidden = true;
+          caughtUp.hidden = false;
+        }
+      }
+
+      function nearBottom() {
+        return window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 600;
+      }
+
+      window.addEventListener('scroll', function () {
+        if (nearBottom()) loadMore();
+      }, { passive: true });
+      button.addEventListener('click', loadMore);
+    })();
+  </script>
+</body>
+</html>

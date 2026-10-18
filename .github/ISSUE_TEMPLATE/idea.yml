@@ -1,0 +1,19 @@
+name: Idea
+description: A moment where you still copy, paste or explain yourself
+labels: [idea]
+body:
+  - type: textarea
+    id: moment
+    attributes:
+      label: The moment
+      description: When do you still copy and paste, or explain yourself to an agent? Describe the page and what you wanted.
+    validations:
+      required: true
+  - type: textarea
+    id: wish
+    attributes:
+      label: What Tacit should do
+  - type: textarea
+    id: else
+    attributes:
+      label: Anything else

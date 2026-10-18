@@ -1,0 +1,9 @@
+node_modules/
+extension/dist/
+*.zip
+*.db
+*.db-wal
+*.db-shm
+.DS_Store
+docs/tacit-demo.mp4
+docs/screenshots/smoke.png

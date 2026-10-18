@@ -1,0 +1,343 @@
+/* Seek: a fictional, neutral search engine. Green-black ink, deep teal links, one amber dot. */
+.seek {
+  --ink: #1d2826;
+  --text: #2f3a37;
+  --muted: #5f6b68;
+  --line: #e3e7e5;
+  --soft: #f3f5f4;
+  --link: #0b5563;
+  --accent: #d98b2b;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #fff;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.seek a {
+  text-decoration: none;
+}
+
+.sk-logo {
+  color: var(--ink);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.sk-logo span {
+  color: var(--accent);
+}
+
+/* Header */
+.sk-header {
+  display: grid;
+  grid-template-columns: 172px 692px 1fr;
+  align-items: center;
+  padding: 22px 32px 0 36px;
+}
+
+.sk-form {
+  position: relative;
+}
+
+.sk-form input {
+  width: 100%;
+  height: 48px;
+  padding: 0 56px 0 22px;
+  border: 1px solid #d3dad8;
+  border-radius: 24px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 16px;
+  outline: none;
+}
+
+.sk-form input:hover {
+  border-color: #b9c3c0;
+}
+
+.sk-form input:focus {
+  border-color: var(--link);
+  box-shadow: 0 0 0 3px rgba(11, 85, 99, 0.1);
+}
+
+.sk-form input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.sk-form button {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+}
+
+.sk-form button:hover {
+  background: var(--link);
+}
+
+.sk-account {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 22px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.sk-account a:hover {
+  color: var(--ink);
+}
+
+.sk-account .sk-signin {
+  padding: 8px 18px;
+  border: 1px solid #d3dad8;
+  border-radius: 999px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.sk-tabs {
+  display: flex;
+  gap: 26px;
+  margin-top: 14px;
+  padding: 0 0 0 calc(36px + 172px + 6px);
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.sk-tabs a {
+  padding: 10px 0 12px;
+  border-bottom: 3px solid transparent;
+  color: var(--muted);
+}
+
+.sk-tabs a:hover {
+  color: var(--ink);
+}
+
+.sk-tabs a[aria-current="page"] {
+  border-bottom-color: var(--ink);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Results */
+.sk-main {
+  flex: 1;
+  width: 652px;
+  margin-left: calc(36px + 172px + 6px);
+  padding: 18px 0 64px;
+}
+
+.sk-stats {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.sk-result {
+  margin-top: 30px;
+}
+
+.sk-source {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sk-favicon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--soft);
+}
+
+.sk-source-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.sk-site {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.sk-source cite {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-style: normal;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sk-result h3 {
+  margin-top: 6px;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+}
+
+.sk-result h3 a {
+  color: var(--link);
+}
+
+.sk-result h3 a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.sk-result h3 a:visited {
+  color: #36506a;
+}
+
+.sk-snippet {
+  display: -webkit-box;
+  margin-top: 4px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  color: var(--text);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+.sk-snippet time {
+  color: var(--muted);
+}
+
+.sk-snippet em {
+  color: var(--ink);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.sk-related {
+  margin-top: 44px;
+}
+
+.sk-related h2 {
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.sk-related ul {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+  list-style: none;
+}
+
+.sk-related a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  border-radius: 22px;
+  background: var(--soft);
+  color: var(--ink);
+}
+
+.sk-related a:hover {
+  background: #e8eceb;
+}
+
+.sk-related svg {
+  color: var(--muted);
+}
+
+.sk-empty {
+  margin-top: 28px;
+  color: var(--text);
+  font-size: 16px;
+}
+
+/* Home state, before a query */
+.sk-home {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 24vh;
+}
+
+.seek[data-state="home"] .sk-header,
+.seek[data-state="home"] .sk-tabs,
+.seek[data-state="home"] .sk-main {
+  display: none;
+}
+
+.seek[data-state="home"] .sk-home {
+  display: flex;
+}
+
+.sk-home .sk-logo {
+  font-size: 76px;
+}
+
+.sk-home .sk-form {
+  width: 600px;
+  margin-top: 34px;
+}
+
+.sk-home .sk-form input {
+  height: 54px;
+  border-radius: 27px;
+}
+
+.sk-home .sk-form button {
+  top: 9px;
+}
+
+.sk-try {
+  margin-top: 22px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.sk-try a {
+  color: var(--link);
+}
+
+.sk-try a:hover {
+  text-decoration: underline;
+}
+
+/* Footer */
+.sk-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 16px 36px;
+  background: var(--soft);
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.sk-footer nav {
+  display: flex;
+  gap: 24px;
+}
+
+.sk-footer a:hover {
+  color: var(--ink);
+}

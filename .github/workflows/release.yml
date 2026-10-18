@@ -1,0 +1,28 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Package the extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - name: Zip the extension
+        run: cd extension && zip -r "../tacit-extension-${GITHUB_REF_NAME}.zip" manifest.json popup.html dist icons
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "Tacit $GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" "tacit-extension-${GITHUB_REF_NAME}.zip" --clobber

@@ -1,0 +1,236 @@
+/* Tacit Lab: the demo's own pages. Warm paper, graphite ink, one forest-green accent. */
+.lab {
+  --ink: #1c1b18;
+  --text: #36332e;
+  --muted: #736d64;
+  --line: #e2ddd3;
+  --paper: #f6f3ed;
+  --card: #fffdf9;
+  --accent: #2f6b4f;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--text);
+}
+
+.lab a {
+  text-decoration: none;
+}
+
+.lab-top,
+.lab-main,
+.lab-foot {
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding-left: 56px;
+  padding-right: 56px;
+}
+
+.lab-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 84px;
+}
+
+.lab-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.lab-host {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.lab-main {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
+  gap: 88px;
+  padding-top: 40px;
+  padding-bottom: 56px;
+}
+
+.lab h1 {
+  color: var(--ink);
+  font-size: 46px;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.lab-lede {
+  margin-top: 22px;
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.lab-notes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  margin-top: 40px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+}
+
+.lab h2 {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.lab-notes ul {
+  margin-top: 12px;
+  list-style: none;
+}
+
+.lab-notes li {
+  position: relative;
+  padding-left: 16px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.lab-notes li + li {
+  margin-top: 8px;
+}
+
+.lab-notes li::before {
+  content: "";
+  position: absolute;
+  top: 0.62em;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.lab-run {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 40px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.lab-run code {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: #f6f3ed;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.lab-flows ul {
+  margin-top: 12px;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.lab-flow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 24px;
+  padding: 20px 18px 20px 0;
+  border-bottom: 1px solid var(--line);
+  transition: background-color 0.15s ease, padding 0.15s ease;
+}
+
+.lab-flow:hover {
+  padding-left: 18px;
+  background: var(--card);
+}
+
+/* The link text stays exactly the flow's name; the whole row is still clickable. */
+.lab-flow a {
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.lab-flow a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.lab-flow p {
+  grid-column: 1;
+  margin-top: 6px;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.lab-flow > span {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.lab-flow:hover > span {
+  color: var(--accent);
+}
+
+.lab-foot {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.lab-foot p {
+  padding: 22px 0 28px;
+  border-top: 1px solid var(--line);
+}
+
+/* 404 */
+.lab-missing {
+  max-width: 640px;
+}
+
+.lab-missing ul {
+  margin-top: 28px;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.lab-missing li a {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.lab-missing li a span {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.lab-missing li a:hover {
+  color: var(--accent);
+}

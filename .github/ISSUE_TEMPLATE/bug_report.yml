@@ -1,0 +1,48 @@
+name: Bug report
+description: Something Tacit did, or failed to do
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please don't paste private page content or your ledger: the demo site (`bun run demo`) reproduces most behaviour.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you expect, and what did Tacit do instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. bun run demo
+        2. Search "decision latency" and open the article
+        3. Press ⌥↵
+    validations:
+      required: true
+  - type: dropdown
+    id: part
+    attributes:
+      label: Which part
+      options:
+        - The line (extension)
+        - Harness or ledger UI
+        - MCP server
+        - Jev decisions
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Browser, OS, Bun version
+      placeholder: Chrome 141, macOS 26, Bun 1.4.2
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Harness output, or errors from the extension's service worker console.
+      render: text

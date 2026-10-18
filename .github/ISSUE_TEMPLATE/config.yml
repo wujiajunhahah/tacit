@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and show-and-tell
+    url: https://github.com/wujiajunhahah/tacit/discussions
+    about: Ask, share how you use Tacit, or think out loud.
+  - name: Security report
+    url: https://github.com/wujiajunhahah/tacit/security/advisories/new
+    about: Report a vulnerability privately.

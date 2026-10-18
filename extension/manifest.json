@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Tacit — context harness",
+  "short_name": "Tacit",
+  "version": "0.1.0",
+  "description": "Reads the page and how you got here, predicts what you need next, and hands the context to your agent. Everything stays on your machine.",
+  "permissions": ["storage", "tabs", "webNavigation", "clipboardWrite"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "dist/background.js" },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["dist/content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "action": { "default_title": "Tacit", "default_popup": "popup.html" },
+  "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" }
+}

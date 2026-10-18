@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Tacit</title>
+    <style>
+      :root {
+        --ink: #17161c;
+        --ink-2: rgba(23, 22, 28, 0.62);
+        --ink-3: rgba(23, 22, 28, 0.42);
+        --paper: #fafaf7;
+        --rule: rgba(23, 22, 28, 0.1);
+        --lime: hsl(78, 72%, 40%);
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ink: #eeedf2;
+          --ink-2: rgba(238, 237, 242, 0.64);
+          --ink-3: rgba(238, 237, 242, 0.42);
+          --paper: #16151a;
+          --rule: rgba(238, 237, 242, 0.12);
+          --lime: hsl(78, 70%, 62%);
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        width: 340px;
+        padding: 16px 16px 14px;
+        background: var(--paper);
+        color: var(--ink);
+        font: 13px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.01em; display: flex; align-items: center; gap: 9px; }
+      h1 i { width: 8px; height: 8px; background: var(--ink); transform: rotate(45deg); display: inline-block; }
+      .lede { margin: 4px 0 14px; color: var(--ink-2); }
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--rule); }
+      .row span small { display: block; color: var(--ink-3); font-size: 12px; }
+      .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); display: inline-block; margin-right: 7px; vertical-align: 1px; }
+      .dot.on { background: var(--lime); }
+      code, .mono { font: 11.5px/1.5 ui-monospace, "SF Mono", Menlo, monospace; }
+      input[type="checkbox"] { width: 30px; height: 18px; appearance: none; border-radius: 9px; background: var(--rule); position: relative; cursor: pointer; flex: none; transition: background 0.14s; }
+      input[type="checkbox"]::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--paper); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); transition: transform 0.14s; }
+      input[type="checkbox"]:checked { background: var(--ink); }
+      input[type="checkbox"]:checked::after { transform: translateX(12px); }
+      textarea { width: 100%; min-height: 64px; margin-top: 6px; padding: 7px 8px; border: 1px solid var(--rule); border-radius: 5px; background: transparent; color: var(--ink); resize: vertical; }
+      details summary { cursor: pointer; color: var(--ink-2); padding: 10px 0 0; border-top: 1px solid var(--rule); }
+      button { all: unset; cursor: pointer; padding: 6px 9px; border-radius: 5px; border: 1px solid var(--rule); color: var(--ink); }
+      button:hover { border-color: var(--ink-3); }
+      .actions { display: flex; gap: 6px; margin-top: 12px; }
+      .muted { color: var(--ink-3); }
+    </style>
+  </head>
+  <body>
+    <h1><i></i>Tacit</h1>
+    <p class="lede">Reads the page and how you got here. Everything stays on this machine.</p>
+
+    <div class="row">
+      <span><span id="dot" class="dot"></span><span id="harness">Checking the harness…</span><small id="engine"></small></span>
+    </div>
+    <div class="row">
+      <span>Read pages<small>Pause Tacit everywhere</small></span>
+      <input id="active" type="checkbox" aria-label="Read pages" />
+    </div>
+    <div class="row">
+      <span>On <b id="site">this site</b><small>Pause only here</small></span>
+      <input id="site-active" type="checkbox" aria-label="Read this site" />
+    </div>
+    <div class="row">
+      <span class="muted" id="counts"></span>
+    </div>
+
+    <details>
+      <summary>Never read these sites</summary>
+      <textarea id="excluded" spellcheck="false"></textarea>
+      <div class="actions"><button id="save-excluded">Save</button></div>
+    </details>
+
+    <div class="actions">
+      <button id="ledger">Open context ledger</button>
+      <button id="mcp">Connect an agent</button>
+    </div>
+    <p id="mcp-help" class="muted mono" hidden>bun run harness<br />claude mcp add tacit -- bun /path/to/tacit/daemon/mcp.ts</p>
+
+    <script src="dist/popup.js"></script>
+  </body>
+</html>

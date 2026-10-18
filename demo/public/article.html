@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notes on a context harness · Margins</title>
+  <meta name="description" content="The most useful thing a computer could know about you is why you opened this page. Almost no software keeps it.">
+  <meta name="author" content="Wren Halloway">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231f1c18'/><path d='M10 7v18' stroke='%23c98b6b' stroke-width='2.5'/><path d='M15 11h8M15 16h8M15 21h5' stroke='white' stroke-width='2.5' stroke-linecap='round'/></svg>">
+  <link rel="stylesheet" href="assets/base.css">
+  <link rel="stylesheet" href="assets/margins.css">
+</head>
+<body class="margins">
+  <header class="mg-header">
+    <div class="mg-wrap">
+      <a class="mg-brand" href="index.html">
+        <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#1f1c18"/><path d="M10 7v18" stroke="#c98b6b" stroke-width="2.5"/><path d="M15 11h8M15 16h8M15 21h5" stroke="#fffdf9" stroke-width="2.5" stroke-linecap="round"/></svg>
+        Margins
+      </a>
+      <nav class="mg-nav" aria-label="Site">
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="archive.html">Archive</a></li>
+          <li><a href="about.html">About</a></li>
+          <li><a class="mg-subscribe" href="subscribe.html">Subscribe</a></li>
+          <li><a href="signin.html">Sign in</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="mg-wrap mg-layout">
+    <main>
+      <article>
+        <div class="mg-article-head">
+          <p class="mg-kicker"><a href="archive.html?topic=essays">Essay</a></p>
+          <h1>Notes on a context harness</h1>
+          <p class="mg-dek">The most useful thing a computer could know about you is why you opened this page. Almost no software keeps it.</p>
+          <div class="mg-byline">
+            <span class="mg-byline-avatar" aria-hidden="true">WH</span>
+            <div>
+              <p class="byline">By <a href="about.html" rel="author">Wren Halloway</a></p>
+              <p><time datetime="2026-10-14">October 14, 2026</time> · 14 min read</p>
+            </div>
+          </div>
+        </div>
+
+        <figure class="mg-hero">
+          <svg viewBox="0 0 680 280" role="img" aria-labelledby="hero-title">
+            <title id="hero-title">A page with one passage marked, beside a short ledger of how the reader arrived</title>
+            <rect width="680" height="280" fill="#efe7db"/>
+            <rect x="74" y="34" width="300" height="212" rx="6" fill="#fffdf9" stroke="#ddd2c2"/>
+            <rect x="100" y="58" width="150" height="10" rx="5" fill="#2d2924"/>
+            <rect x="100" y="86" width="246" height="6" rx="3" fill="#ddd3c4"/>
+            <rect x="100" y="100" width="228" height="6" rx="3" fill="#ddd3c4"/>
+            <rect x="100" y="114" width="238" height="6" rx="3" fill="#ddd3c4"/>
+            <rect x="90" y="130" width="266" height="42" rx="4" fill="#f3d9ca"/>
+            <rect x="100" y="140" width="236" height="6" rx="3" fill="#a5532f"/>
+            <rect x="100" y="154" width="196" height="6" rx="3" fill="#a5532f"/>
+            <rect x="100" y="188" width="244" height="6" rx="3" fill="#ddd3c4"/>
+            <rect x="100" y="202" width="222" height="6" rx="3" fill="#ddd3c4"/>
+            <rect x="100" y="216" width="170" height="6" rx="3" fill="#ddd3c4"/>
+            <path d="M314 160v20l5-4.6 3.6 7.6 3.2-1.4-3.5-7.4h6.6z" fill="#2d2924" stroke="#fffdf9" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M374 151h62" stroke="#8f3b1b" stroke-width="1.5" stroke-dasharray="3 5"/>
+            <circle cx="436" cy="151" r="3" fill="#8f3b1b"/>
+            <rect x="436" y="58" width="184" height="168" rx="6" fill="#2d2924"/>
+            <rect x="456" y="76" width="70" height="6" rx="3" fill="#8b7f70"/>
+            <circle cx="462" cy="104" r="3.5" fill="#8b7f70"/>
+            <rect x="474" y="101" width="106" height="6" rx="3" fill="#5f564b"/>
+            <circle cx="462" cy="128" r="3.5" fill="#8b7f70"/>
+            <rect x="474" y="125" width="88" height="6" rx="3" fill="#5f564b"/>
+            <circle cx="462" cy="152" r="3.5" fill="#e3a37f"/>
+            <rect x="474" y="149" width="120" height="6" rx="3" fill="#e3a37f"/>
+            <circle cx="462" cy="176" r="3.5" fill="#8b7f70"/>
+            <rect x="474" y="173" width="76" height="6" rx="3" fill="#5f564b"/>
+            <circle cx="462" cy="200" r="3.5" fill="#8b7f70"/>
+            <rect x="474" y="197" width="98" height="6" rx="3" fill="#5f564b"/>
+          </svg>
+          <figcaption>A page, read twice: once by you, and once by the harness keeping notes beside you.</figcaption>
+        </figure>
+
+        <h2 id="why-interfaces-got-old">Why interfaces got old</h2>
+        <p>Every day I watch capable people use the most capable software ever built in the least capable way. They open a page, press Command-A, copy everything, switch windows and paste the whole thing into a chat box. Then they type a sentence explaining what they wanted from it. The model reads the page in a second and finds the one paragraph that mattered. The person, meanwhile, has become a courier. That is not a failure of the person or of the model. It is a failure of the space between them, which was drawn decades ago for a single kind of reader.</p>
+        <p>That reader was a human with a keyboard, a pointer and a pair of eyes, and every convention we rely on follows from that assumption. Buttons exist to be clicked, menus exist to be searched, and text is set in columns because eyes move in lines. None of it is wrong. It simply describes a world in which only one party was looking at the screen. Today there are two. One of them can read a long document faster than you can scroll it, and it is the only one in the room that the interface completely ignores.</p>
+        <p>So the agent waits. It cannot see what you see, it does not know how you arrived, and it has no idea what you are trying to finish. Each time you hand it a piece of the world you pay twice: once in tokens, and once in attention, because the act of feeding breaks the thread you were following. Reading, collecting and chasing an idea were meant to be one continuous motion. Instead they arrive in buckets, carried across by hand, and the most intelligent tool on the desk spends its day waiting to be fed.</p>
+
+        <h2 id="the-page-is-context">The page is context</h2>
+        <p>Here is the claim this essay rests on: the page you are looking at is already context, and so is everything around it. Why you opened it. The search that led you here. The link you chose over nine others, and the words on that link. The paragraph you slowed down on, the sentence you selected, the tab you came back to twice. None of this is private in any dramatic sense. It is the residue of paying attention, and it says more about your intent than any prompt you are likely to type.</p>
+        <p>Most software throws that residue away. Browsers remember an address and a title, analytics tools fold it into funnels, and the moment you open a chat window you start from nothing. You explain yourself again. You restate the goal, paste the source and describe what you have already ruled out. The irony is that the machine witnessed every step. It just never treated the steps as worth keeping, because nothing downstream knew what to do with them.</p>
+        <p>A context harness is the piece that keeps them. It sits beside the browser, notices how each page was reached, and turns those traces into a short, explicit statement of what you seem to be doing. Then it does two things with that statement. It reshapes the page in front of you, so the parts that answer you come forward and the rest steps back. And it hands a compact summary to whichever agent you choose to ask, so the conversation starts where you already are instead of at zero.</p>
+
+        <h2 id="system-one-decisions">System One decisions</h2>
+        <p>Psychologists describe two modes of thinking. The fast one recognises a face or catches a ball before you can explain how. The slow one does long division and weighs a mortgage. Language models have been built, sold and judged almost entirely as the slow kind: they write, reason and explain at length. Yet most of what an interface decides every second is closer to the fast kind. Which result deserves the top slot. Which paragraph answers the question. Which of three buttons the user is reaching for.</p>
+        <p>Those are multiple-choice questions, and a newer class of small models treats them that way. They do not generate prose. Given a state and a handful of typed options, they return a probability for each option and nothing else. That shape is exactly the shape of a click. It is also cheap enough to ask before every click, which changes what an interface can afford to wonder about. A question that once needed a product meeting can now be asked a thousand times an hour.</p>
+        <ul>
+          <li>Above 0.8, act, and say what you did.</li>
+          <li>Between 0.5 and 0.8, offer the choice one click away.</li>
+          <li>Below 0.5, stay out of the way.</li>
+        </ul>
+        <p>The useful word is calibrated. A score of 0.9 should be right about nine times in ten, and a score of 0.55 should feel like a coin with a slight bias. When the numbers mean what they say, a harness can follow a plain rule like the one above: act when it is sure, ask when it is not, and stay quiet when it has nothing to add. Without calibration the same rule becomes a slot machine with good manners, confident at random and humble at random.</p>
+
+        <h2 id="latency-why-400-ms-matters">Latency: why 400 ms matters</h2>
+        <p>In the early 1980s, researchers studying interactive terminals noticed something about response time. When the system answered in less than about four hundred milliseconds, people stopped waiting for it and began working with it. Their pace picked up, and a session started to feel like a conversation instead of a queue. The figure has been quoted loosely ever since, but the shape of the finding holds up: below a certain delay a tool disappears into the task, and above it the tool becomes the task.</p>
+        <p>That threshold is why decision latency matters more to an interface than raw intelligence. A suggestion that arrives in three hundred milliseconds can sit inside the gesture that triggered it. The same suggestion arriving in four seconds has to live somewhere else, usually in a chat panel beside the work, where it competes for attention instead of saving it. When the question is where to look next, fast and slightly less clever beats slow and brilliant almost every time.</p>
+        <h3>A budget for one reflex</h3>
+        <p>A harness therefore has to plan its time the way a game engine plans a frame. Reading the page, updating the record, guessing the intent and ranking what is on screen all have to fit inside the same small window, with room left over for whatever goes wrong. The split below is the one we aim for in our own prototype. It is a design target rather than a measurement, but it keeps everyone honest about where the time goes.</p>
+        <pre>budget for one reflex          400 ms
+  read the page                 30 ms
+  append to the ledger           5 ms
+  infer the intent              40 ms
+  rank passages and links       60 ms
+  ask the choosing model       200 ms
+  paint the result              16 ms
+  slack                         49 ms</pre>
+        <p>The model call is the largest line and the one most likely to slip, so everything else is built to work without it. If the choosing model is slow or unreachable, the harness falls back to plain lexical ranking and says so in the interface. A slightly worse answer on time is better than a perfect one that arrives after the reader has already scrolled past the place where it would have helped.</p>
+
+        <h2 id="the-context-ledger">The context ledger</h2>
+        <p>If context is valuable, it needs somewhere to live. I call that place a ledger, because the word implies two things at once: entries are written in order, and anyone with permission can audit them. Each entry is small. A page was opened from a search for these words. A link with this label was followed. This sentence was selected, that block was copied, the reader stayed on one section for most of a minute. Nothing is inferred at write time. The ledger records what happened and leaves interpretation for later.</p>
+        <pre>09:14:02  search   "decision latency"               seek
+09:14:09  follow   "Latency: why 400 ms matters"    margins
+09:14:41  select   "below a certain delay a tool disappears"
+09:15:30  dwell    latency-why-400-ms-matters       48 s
+09:15:52  copy     budget for one reflex            8 lines</pre>
+        <p>Interpretation happens on read. When an agent asks what the user is doing, the harness walks back through recent entries, weighs them by how fresh and how explicit they are, and produces a short intent with a confidence attached. A typed statement outranks a search query, a query outranks a selection, and a selection outranks time spent. Old evidence fades. The result is a sentence and a few weighted terms, not a profile, and it is rebuilt from scratch every time it is needed.</p>
+        <p>Ownership matters more than cleverness here. The ledger lives on the user's machine, it can be read in plain language, and every entry can be deleted or corrected. If the harness has guessed wrong, fixing it should be as easy as crossing out a line. The goal is not to know everything about a person. It is to remember the last few minutes well enough that nobody has to explain them twice, and to forget them as soon as they stop being useful.</p>
+
+        <h2 id="undo-is-a-promise">Undo is a promise</h2>
+        <p>Interfaces that change shape raise an old fear: if the screen is different every time, how can anyone trust it? The answer is not to freeze the layout. It is to freeze the meaning of a small set of states. Whatever the page looks like, the user must be able to tell what the system knows, what it is doing, what can still be changed and what has already happened. Those four facts are the floor that every kind of personalisation stands on.</p>
+        <blockquote>Presentation can differ from one person to the next. Shared facts and commitments have to be checkable by everyone they affect.</blockquote>
+        <p>The most important of them is the difference between proposed and done. A suggestion may be drawn as a table for one person and a diagram for another, and that is fine. But confirmed and executed cannot mean different things in different places. If the harness folds a post, the fold is a proposal and the post is one click away. If it ever acts on the user's behalf, the action is logged, labelled and reversible for as long as reversal is possible.</p>
+        <p>Undo is not a feature in this design. It is the promise that lets everything else be adventurous. A system that can be wrong cheaply is allowed to guess, and guessing is what saves people time. A system that cannot be undone has to ask about everything, and soon nobody reads its questions. Reversibility is what turns a confident interface from a risk into a convenience, and it is the first thing to protect when the design gets ambitious.</p>
+
+        <h2 id="six-people-in-every-conversation">Six people in every conversation</h2>
+        <p>In 1858 Oliver Wendell Holmes Sr. published a collection of breakfast-table essays, and one of them contains a small joke that has outlived most of the book. When John and Thomas talk, he wrote, there are really six people present: the real John, John as he sees himself, and John as Thomas sees him, and the same three versions of Thomas. Much of what goes wrong between two people happens in the gaps between those versions, and most of it is never said out loud.</p>
+        <p>Agents add more versions. My assistant forms a picture of me, a picture of you and a picture of what we agreed. Yours does the same. Suppose I say I need to think about something. You hear a polite no. My agent records a postponement, and your agent, reasoning from your reading, quietly books an alternative. Nobody lied and nobody decided, yet an interpretation has started to behave like a fact, and by next week it will be hard to say where it came from.</p>
+        <p>The lesson for a harness is modest but strict. It should always mark the difference between what someone said, what the system inferred and what is still waiting for confirmation. Inferences can be useful, and they should be visible to, and correctable by, the person they describe. An agent's guess should never become a shared agreement just because it was convenient to act on. When in doubt, the harness should carry a question forward rather than an answer.</p>
+        <p>None of this removes real disagreement. Different interests, values and things deliberately left unsaid do not dissolve because the software got smarter. What a careful harness can do is make misunderstandings cheaper to notice and easier to correct before they harden. That is a smaller promise than mutual understanding, and a far more honest one, and it is the only one I am confident software can keep.</p>
+
+        <h2 id="folding-without-hiding">Folding without hiding</h2>
+        <p>Feeds are where context pays off fastest and where it is most dangerous. A timeline mixes everything: a thread about the problem you are working on, a match result, a recipe, a celebrity breakup and three advertisements. If the harness knows you arrived looking for better ways to give agents context, most of that is noise for the next ten minutes. The obvious move is to remove it. The better move is to fold it, and to say why.</p>
+        <p>A fold is a collapsed post with a one-line reason attached: folded because it looks like football, and you came here for agent tooling. The post is still in the feed, in its original position, and one click restores it. The reason is the important part. It turns a silent judgement into a visible one that the reader can disagree with, and every disagreement is evidence the ledger can learn from.</p>
+        <p>The risk is real. A personalised feed already decides which opinions you meet. A personalised interface could go further and decide which actions you are offered at all, until certain buttons simply stop appearing. Folding with reasons is one guard against that drift. Others are a single place to see everything that was folded, a switch that turns the whole layer off, and the habit of occasionally showing the reader something outside their usual pattern on purpose.</p>
+
+        <h2 id="from-browser-to-os">From browser to OS</h2>
+        <p>The browser is the right place to start because it is where so much of our context already lives. Research, shopping, reading and work all pass through it, and an extension can see both the page and the path to it without asking every website to cooperate. It is also a place with clear limits. A browser extension cannot see the document you were editing before you opened the tab, or the message that made you search in the first place.</p>
+        <p>Those limits sketch the road ahead. The same ledger could record which file you had open, which window you switched from and which notification interrupted you. At that point applications start to look different. They stop being destinations you visit and become capabilities an agent can call on your behalf. The interface for a task is assembled from what you want right now: a table when you are comparing, a diagram when you are trying to understand, and nothing at all when you are done.</p>
+        <p>That future depends on boring things being solid: permissions that are easy to read, logs that are easy to search, actions that are easy to reverse. It also depends on restraint. A harness that knows a lot should still say very little, appear only when it has something useful to offer, and leave the page alone when it does not. The best interaction is often the one that never needed to happen.</p>
+
+        <h2 id="a-brief-history-of-the-mouse">A brief history of the mouse</h2>
+        <p>It helps to remember how young our input habits are. The keyboard layout most of us type on was arranged for mechanical typewriters in the 1870s. The mouse arrived almost a century later, as a wooden shell with two perpendicular wheels, built at the Stanford Research Institute by Douglas Engelbart's group, which was working on ways to augment human intellect. The patent called it an X-Y position indicator for a display system, which remains a fair description of what it does.</p>
+        <p>In December 1968 Engelbart showed the mouse to an audience in San Francisco, alongside hypertext links, shared screens and live video between two sites. The presentation is now remembered as the Mother of All Demos, and much of what it showed took decades to become ordinary. Pointing devices moved through research labs during the 1970s and reached ordinary homes in the 1980s, by which time the gesture of pointing at a thing before acting on it had become the grammar of personal computing.</p>
+        <p>Touchscreens shortened the distance between the finger and the thing. Voice removed the hand altogether. Each step made input lighter, and each kept the same premise: the human does the pointing. A context harness asks a different question. Not how to point faster, but how often pointing could be skipped because the system already knows where you were heading. The aim is not better input. It is less of it.</p>
+
+        <h2 id="footnotes">Footnotes</h2>
+        <p>On the six people. The passage comes from the third instalment of The Autocrat of the Breakfast-Table, which first ran in a magazine and was collected as a book in 1858. Holmes played the idea for laughs, but the structure he describes, three versions of each speaker, is a useful lens for any system that models people. I have used it here as a metaphor rather than a count; adding agents does not simply add more chairs to the table.</p>
+        <p>On the four hundred milliseconds. The figure is usually traced to work on interactive response time at IBM in the early 1980s and is often called the Doherty threshold. It was observed on very different machines doing very different work, so it should be read as a direction rather than a law. The part that survives is relative: shorter delays keep people in the flow of a task, and interfaces should be designed around that fact rather than around the average case.</p>
+        <p>On calibration and the harness. Nothing in this essay depends on a particular model or vendor. Any ranker that returns honest probabilities for a small set of options would fit, and plain lexical ranking is a reasonable fallback when no model is available. The ledger described here stores its entries locally. The examples are simplified versions of what a working prototype records, with times and wording changed to keep them readable.</p>
+
+        <section class="mg-related" aria-labelledby="related-reading">
+          <h3 id="related-reading">Related reading</h3>
+          <ul>
+            <li><a href="search.html?q=decision+latency+production">Measuring decision latency in production</a>Latency budgets for interfaces that think before every click.</li>
+            <li><a href="search.html?q=agent+context">Why agents need your browsing context</a>The case for handing an agent the path to a page, not just the page.</li>
+            <li><a href="search.html?q=mouse+1968">The Mother of All Demos, revisited</a>What the 1968 demonstration got right about pointing, and what came after.</li>
+          </ul>
+        </section>
+      </article>
+    </main>
+
+    <aside class="mg-aside" aria-label="More from Margins">
+      <h3>Popular posts</h3>
+      <ul class="mg-popular">
+        <li><a href="sourdough-at-altitude.html">Sourdough at altitude: what changes above 1,500 metres</a><span>June 2, 2026 · 6 min read</span></li>
+        <li><a href="restoring-a-road-bike.html">Restoring a 1974 road bike, one stuck bolt at a time</a><span>August 19, 2026 · 9 min read</span></li>
+        <li><a href="community-gardens.html">The quiet economics of community gardens</a><span>September 7, 2026 · 7 min read</span></li>
+      </ul>
+      <div class="mg-letter">
+        <h3>The newsletter</h3>
+        <p>Essays on software, attention and the things in between. Every other Sunday, never more.</p>
+        <a href="subscribe.html">Subscribe</a>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="mg-footer">
+    <div class="mg-wrap">
+      <p>© 2026 Margins</p>
+      <ul>
+        <li><a href="privacy.html">Privacy</a></li>
+        <li><a href="terms.html">Terms</a></li>
+        <li><a href="rss.xml">RSS</a></li>
+      </ul>
+    </div>
+  </footer>
+</body>
+</html>

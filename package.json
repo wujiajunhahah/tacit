@@ -1,0 +1,48 @@
+{
+  "name": "tacit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Your agent should already know what you are looking at. A local context harness for the browser, with an MCP server.",
+  "license": "MIT",
+  "author": "Wu JiaJun",
+  "homepage": "https://github.com/wujiajunhahah/tacit#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wujiajunhahah/tacit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/wujiajunhahah/tacit/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude-code",
+    "cursor",
+    "ai-agents",
+    "browser-extension",
+    "context",
+    "local-first"
+  ],
+  "scripts": {
+    "build": "bun run scripts/build.ts",
+    "test": "bun test test/core test/extension test/daemon",
+    "harness": "bun run daemon/server.ts",
+    "mcp": "bun run daemon/mcp.ts",
+    "demo": "bun run demo/serve.ts",
+    "e2e": "bun run scripts/e2e.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "record": "bun run scripts/record.ts",
+    "smoke": "bun run scripts/smoke.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.3",
+    "@types/chrome": "^0.3.5",
+    "playwright": "1.62.1",
+    "typescript": "^7.0.2"
+  }
+}
