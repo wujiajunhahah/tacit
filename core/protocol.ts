@@ -7,7 +7,7 @@ import type { Intent, PageModel, Visit } from './types';
 
 export const HARNESS_PORT = 7766;
 export const HARNESS_ORIGIN = `http://127.0.0.1:${HARNESS_PORT}`;
-export const HARNESS_VERSION = '0.1.0';
+export const HARNESS_VERSION = '0.1.1';
 
 /**
  * - page: a visit started, or the page model changed (SPA navigation, feed grew).

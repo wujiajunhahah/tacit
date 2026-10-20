@@ -127,4 +127,4 @@ Rendered by `bun run store` from the demo site with the built extension (see `sc
 | Screenshot 5 | `screenshot-5-local.png` |
 | Small promo tile (440×280) | `promo-small.png` |
 | Marquee promo tile (1400×560) | Optional; only needed to be featured in the marquee. Not made. |
-| Promo video | Optional. `docs/tacit-demo.mp4` is in the v0.1.0 release; the field takes a YouTube link only. |
+| Promo video | Optional. `docs/tacit-demo.mp4` is attached to each GitHub release; the field takes a YouTube link only. |

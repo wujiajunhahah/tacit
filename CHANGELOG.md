@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.1 · 2026-10-21
+
+Ready for the Chrome Web Store, and plain about what happens to your data.
+
+- **Privacy policy.** [PRIVACY.md](PRIVACY.md) lists everything Tacit reads, where it goes, exactly what reaches Jev and how to delete it. The README links to it.
+- **Chrome Web Store kit** in `docs/store`: listing copy in English and 简体中文, permission and data-use justifications, five screenshots, the promo tile and the store icon, re-rendered with `bun run store`.
+- **"Local by default."** The extension and the popup no longer say everything stays on your machine, because Jev, when you turn it on, sends decision requests to TypeSafe. The README now describes those requests precisely: next-step labels with short snippets, or up to 40 feed posts.
+- Playwright 1.64.1 and actions/checkout 7.
+
 ## 0.1.0 · 2026-10-18
 
 First public release.

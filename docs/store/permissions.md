@@ -1,6 +1,6 @@
 # Privacy practices: permissions and data use
 
-Answers for the **Privacy practices** tab of the developer dashboard. Each block in "Permission justifications" goes into the field of the same name. Everything here was checked against the code at v0.1.0; file references are given so a reviewer, or you after a change, can check again.
+Answers for the **Privacy practices** tab of the developer dashboard. Each block in "Permission justifications" goes into the field of the same name. Everything here was checked against the code at v0.1.1; file references are given so a reviewer, or you after a change, can check again.
 
 ## Permission justifications
 

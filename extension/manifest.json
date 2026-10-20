@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Tacit — context harness",
   "short_name": "Tacit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Reads the page and how you got here, predicts what you need next, and hands the context to your AI agent. Local by default.",
   "permissions": ["storage", "tabs", "webNavigation", "clipboardWrite"],
   "host_permissions": ["<all_urls>"],

@@ -1,6 +1,6 @@
 {
   "name": "tacit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Your agent should already know what you are looking at. A local context harness for the browser, with an MCP server.",
