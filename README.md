@@ -197,9 +197,9 @@ The extension reads every page you visit, so it is built to stay out of the way 
 - **Some sites are skipped out of the box** (Gmail, Google accounts, PayPal, 1Password, Bitwarden, LastPass), and Tacit can be paused globally or per site from the popup.
 - **The harness binds to loopback only**, rejects foreign `Host` headers (DNS rebinding), refuses requests from web-page origins, grants CORS only to the extension, and serves its UI under a nonce-based CSP.
 - **The ledger is SQLite in `~/.tacit`**, readable only by you (0600 files in a 0700 folder). Delete the folder and it is gone.
-- **Jev is opt-in.** With a TypeSafe key, each decision sends your inferred intent, its top evidence, the page's title and URL, and the candidates being judged (link labels, or the feed posts in view). The ledger itself never leaves.
+- **Jev is opt-in.** With a TypeSafe key, each decision sends your inferred intent, its top evidence, the page's title and URL, and the candidates being judged (the labels and short snippets of the page's next steps, or up to 40 feed posts). The ledger itself never leaves.
 
-Found a hole? See [SECURITY.md](SECURITY.md).
+The [privacy policy](PRIVACY.md) lists everything Tacit reads, where it goes, exactly what reaches Jev, and how to delete it. Found a hole? See [SECURITY.md](SECURITY.md).
 
 ## Status
 

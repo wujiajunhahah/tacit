@@ -197,9 +197,9 @@ TYPESAFE_API_KEY=... bun run harness
 - **默认跳过一些网站**（Gmail、Google 账户、PayPal、1Password、Bitwarden、LastPass），也可以在弹出面板里全局暂停，或只在当前网站暂停。
 - **harness 只监听本机回环地址**，拒绝不认识的 `Host` 头（防 DNS rebinding），拒绝来自网页的请求，只对扩展开放 CORS，账本页面使用基于 nonce 的 CSP。
 - **账本是 `~/.tacit` 里的 SQLite**，只有你自己可读（文件 0600，目录 0700）。删掉这个文件夹，它就没了。
-- **Jev 需要你主动开启。** 加上 TypeSafe key 后，每次判断会发送：推断出的意图、最主要的证据、页面标题和 URL，以及正在被判断的候选项（链接文字，或眼前的信息流帖子）。账本本身永远不会离开你的电脑。
+- **Jev 需要你主动开启。** 加上 TypeSafe key 后，每次判断会发送：推断出的意图、最主要的证据、页面标题和 URL，以及正在被判断的候选项（页面上可能的下一步的文字和简短片段，或最多 40 条信息流帖子）。账本本身永远不会离开你的电脑。
 
-发现漏洞？请看 [SECURITY.md](SECURITY.md)。
+[隐私政策](PRIVACY.md)（英文）列出了 Tacit 读取的全部内容、它们的去向、发给 Jev 的确切字段，以及如何删除。发现漏洞？请看 [SECURITY.md](SECURITY.md)。
 
 ## 进展
 

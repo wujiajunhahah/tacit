@@ -3,7 +3,7 @@
   "name": "Tacit — context harness",
   "short_name": "Tacit",
   "version": "0.1.0",
-  "description": "Reads the page and how you got here, predicts what you need next, and hands the context to your agent. Everything stays on your machine.",
+  "description": "Reads the page and how you got here, predicts what you need next, and hands the context to your AI agent. Local by default.",
   "permissions": ["storage", "tabs", "webNavigation", "clipboardWrite"],
   "host_permissions": ["<all_urls>"],
   "background": { "service_worker": "dist/background.js" },

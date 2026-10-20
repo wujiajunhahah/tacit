@@ -33,7 +33,8 @@
     "e2e": "bun run scripts/e2e.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "record": "bun run scripts/record.ts",
-    "smoke": "bun run scripts/smoke.ts"
+    "smoke": "bun run scripts/smoke.ts",
+    "store": "bun run scripts/store.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
