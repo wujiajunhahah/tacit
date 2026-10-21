@@ -19,7 +19,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run build
       - name: Zip the extension
-        run: cd extension && zip -r "../tacit-extension-${GITHUB_REF_NAME}.zip" manifest.json popup.html dist icons
+        run: cd extension && zip -r "../tacit-extension-${GITHUB_REF_NAME}.zip" manifest.json popup.html _locales dist icons
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}

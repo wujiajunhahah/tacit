@@ -2,8 +2,16 @@
 
 const EXTENSION_ORIGIN = /^chrome-extension:\/\/[a-p]{32}$/;
 
+/** DELETE /v1/all must carry this header with this value, so nothing wipes the ledger by accident. */
+export const CONFIRM_HEADER = 'x-tacit-confirm';
+export const CONFIRM_DELETE_ALL = 'delete-everything';
+
 export function isExtensionOrigin(origin: string | null): origin is string {
   return origin !== null && EXTENSION_ORIGIN.test(origin);
+}
+
+function isOwnOrigin(origin: string | null, port: number): boolean {
+  return origin === `http://127.0.0.1:${port}` || origin === `http://localhost:${port}`;
 }
 
 /** Blocks DNS rebinding: the Host must name the loopback address we listen on. */
@@ -12,10 +20,14 @@ export function hostAllowed(host: string | null, port: number): boolean {
   return h === `127.0.0.1:${port}` || h === `localhost:${port}`;
 }
 
-/** No Origin (curl, agents), the extension, or the ledger UI itself. */
+/** No Origin (curl, agents), the extension, or the dashboard itself. */
 export function originAllowed(origin: string | null, port: number): boolean {
-  if (origin === null) return true;
-  return isExtensionOrigin(origin) || origin === `http://127.0.0.1:${port}` || origin === `http://localhost:${port}`;
+  return origin === null || isExtensionOrigin(origin) || isOwnOrigin(origin, port);
+}
+
+/** Deleting is for the dashboard or a local script, never for an extension. */
+export function deleteAllowed(origin: string | null, port: number): boolean {
+  return origin === null || isOwnOrigin(origin, port);
 }
 
 /** CORS is granted to extension origins only, by reflection, never with `*`. */

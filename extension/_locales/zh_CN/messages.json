@@ -1,0 +1,5 @@
+{
+  "name": { "message": "Tacit — 上下文 harness" },
+  "short_name": { "message": "Tacit" },
+  "description": { "message": "读取你正在看的页面，以及你是怎么来到这里的，预测你下一步要什么，再把上下文交给你的 AI agent。默认只在本地。" }
+}

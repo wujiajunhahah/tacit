@@ -18,10 +18,19 @@ const BASE: Record<EvidenceKind, number> = {
   search: 4,
   copy: 3.5,
   selection: 3,
+  read: 2,
   click: 1.5,
   dwell: 1.2,
   title: 0.8,
 };
+
+/** A passage under the pointer is a stronger sign than one that merely stayed in view. */
+const READ_VIA = { pointer: 1.2, view: 0.5 };
+
+/** 1.5 s of attention is a hint, 10 s is a strong signal; capped so one passage cannot drown the rest. */
+export function readImportance(ms: number): number {
+  return Math.min(1.5, 0.35 + ms / 8000);
+}
 
 const CANDIDATE_KINDS = new Set<EvidenceKind>(['stated', 'search', 'copy', 'selection', 'dwell', 'title']);
 const STATED_TTL_MS = 45 * 60_000;
@@ -58,6 +67,7 @@ export function collectEvidence(trail: Visit[], opts: IntentOptions = {}): Evide
     for (const s of v.selections) push('selection', s.text, s.at);
     for (const c of v.copies) push('copy', c.text, c.at);
     for (const c of v.clicks) push('click', c.label, c.at);
+    for (const r of v.reads ?? []) push('read', r.text, r.at, READ_VIA[r.via] * readImportance(r.ms));
     if (v.dwellMs >= 8000 && v.title) push('dwell', cleanTitle(v.title), v.endedAt ?? now, 0.25 + Math.min(1, v.dwellMs / 60_000));
   }
   if (opts.currentTitle) push('title', cleanTitle(opts.currentTitle), now);
@@ -83,10 +93,15 @@ export function inferIntent(trail: Visit[], opts: IntentOptions = {}): Intent {
   if (evidence.length === 0) return NO_INTENT;
 
   const mass = new Map<string, number>();
+  // Reading says which words matter, not what the goal is called: it weighs terms but does not vote.
+  const vote = new Map<string, number>();
   const tokensOf = evidence.map((ev) => {
     const toks = [...new Set(tokenize(ev.text))];
     const share = ev.weight / Math.sqrt(Math.max(toks.length, 1));
-    for (const t of toks) mass.set(t, (mass.get(t) ?? 0) + share);
+    for (const t of toks) {
+      mass.set(t, (mass.get(t) ?? 0) + share);
+      if (ev.kind !== 'read') vote.set(t, (vote.get(t) ?? 0) + share);
+    }
     return toks;
   });
 
@@ -97,7 +112,7 @@ export function inferIntent(trail: Visit[], opts: IntentOptions = {}): Intent {
     if (!CANDIDATE_KINDS.has(ev.kind) || toks.length === 0) return;
     const own = ev.weight / Math.sqrt(toks.length);
     let support = 0;
-    for (const t of toks) support += Math.max(0, (mass.get(t) ?? 0) - own);
+    for (const t of toks) support += Math.max(0, (vote.get(t) ?? 0) - own);
     const score = ev.weight + 0.6 * (support / toks.length);
     const key = ev.text.toLowerCase();
     const prev = byText.get(key);
@@ -139,6 +154,7 @@ export function describeEvidence(ev: Evidence, now = Date.now()): string {
     search: 'searched',
     copy: 'copied',
     selection: 'selected',
+    read: 'read closely',
     click: 'clicked',
     dwell: 'read',
     title: 'reading',

@@ -5,9 +5,9 @@ Captured by `bun run e2e` after the demo flows.
 ## tacit_current_context
 
 # Context: tacit-labs/reflex: Calibrated reflexes for interfaces · Codeyard
-http://127.0.0.1:57887/repo.html
+http://127.0.0.1:58764/repo.html
 
-**What I'm trying to do** (inferred · 91%): install reflex
+**What I'm trying to do** (inferred · 90%): install reflex
 - searched “install reflex” · just now
 - searched “agent context copy paste” · just now
 - clicked “tacit-labs/reflex: Calibrated reflexes for interfaces” · just now
@@ -42,43 +42,42 @@ git clone https://example.com/tacit-labs/reflex.git cd reflex bun install bun ru
 - install reflex - Seek (127.0.0.1)
 - Home / Murmur (127.0.0.1)
 - agent context copy paste - Seek (127.0.0.1)
-- Notes on a context harness · Margins (127.0.0.1) · read 5 s
-- decision latency - Seek (127.0.0.1)
+- Notes on a context harness · Margins (127.0.0.1) · read 14 s
 
 ---
-Shared by Tacit · ~322 tokens instead of ~575 for the whole page
+Shared by Tacit · ~308 tokens instead of ~575 for the whole page
 
 ## tacit_intent
 
 Intent: install reflex
-Confidence: 91% (inferred from what they did)
-Key terms: install, reflex, context, agent, tacit, lab, calibrated, reflexe
+Confidence: 90% (inferred from what they did)
+Key terms: install, reflex, context, agent, interface, tacit, lab, calibrated
 
 Evidence:
 - searched “install reflex” · just now
 - searched “agent context copy paste” · just now
 - clicked “tacit-labs/reflex: Calibrated reflexes for interfaces” · just now
 - clicked “Murmur: what people are saying about agent context” · just now
-- clicked “Notes on a context harness” · just now
-- reading “tacit-labs/reflex: Calibrated reflexes for interfaces” · just now
+- read closely “That threshold is why decision latency matters more to an…” · just now
+- read closely “A harness therefore has to plan its time the way a game…” · just now
 
 Other readings:
 - agent context copy paste (4%)
 - tacit-labs/reflex: Calibrated reflexes for interfaces (2%)
-- decision latency (1%)
+- Notes on a context harness (1%)
 
 ## tacit_search("decision latency")
 
 3 pages the user read match “decision latency”, best first:
 
 1. tacit-labs/reflex: Calibrated reflexes for interfaces · Codeyard (127.0.0.1 · last seen just now)
-   http://127.0.0.1:57887/repo.html
+   http://127.0.0.1:58764/repo.html
    import { choose } from '@tacit-labs/reflex'; const result = choose({ state: 'Searched "decision latency", opened an essay', options: [ { id: 'latency', label: 'Latency: why 400 ms matters' }, { id:…
 
 2. Notes on a context harness · Margins (127.0.0.1 · last seen just now)
-   http://127.0.0.1:57887/article.html
+   http://127.0.0.1:58764/article.html
    09:14:02 search "decision latency" seek 09:14:09 follow "Latency: why 400 ms matters" margins 09:14:41 select "below a certain delay a tool disappears" 09:15:30 dwell latency-why-400-ms-matters 48 s…
 
 3. Home / Murmur (127.0.0.1 · last seen just now)
-   http://127.0.0.1:57887/feed.html
+   http://127.0.0.1:58764/feed.html
    p95 decision latency dropped from 610 ms to 290 ms after we stopped re-tokenizing the whole page on every scroll event. Profile before you optimize, then profile again.

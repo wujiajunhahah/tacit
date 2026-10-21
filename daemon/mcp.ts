@@ -91,7 +91,8 @@ export function createMcpServer(store: Store): McpServer {
     {
       title: 'Full text of a page the user read',
       description:
-        'The full readable text of a page the user visited, as markdown with headings, plus when and how long they read it. ' +
+        'The full readable text of a page the user visited, as markdown with headings, plus when and how long they read it ' +
+        'and the passages they lingered on (the strongest hint of what mattered to them). ' +
         'Only pages the user actually visited are available. Call this after tacit_search or tacit_trail ' +
         'when the passages from tacit_current_context are not enough.',
       inputSchema: {

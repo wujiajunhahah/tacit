@@ -108,9 +108,21 @@ export interface Visit {
   clicks: Click[];
   /** Intent the user picked explicitly. Always outranks inference. */
   statedIntent?: Moment;
+  /** Passages the user lingered on, longest first. At most 30. */
+  reads?: Read[];
 }
 
-export type EvidenceKind = 'stated' | 'search' | 'copy' | 'selection' | 'click' | 'dwell' | 'title';
+/** A passage the user lingered on: held in the middle of the viewport, or under the pointer. */
+export interface Read {
+  blockId: string;
+  text: string;
+  /** Time spent on it. Longer means more important. */
+  ms: number;
+  via: 'view' | 'pointer';
+  at: number;
+}
+
+export type EvidenceKind = 'stated' | 'search' | 'copy' | 'selection' | 'read' | 'click' | 'dwell' | 'title';
 
 export interface Evidence {
   kind: EvidenceKind;

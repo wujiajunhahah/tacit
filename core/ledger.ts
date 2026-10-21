@@ -6,7 +6,10 @@ export type LedgerKind = 'jump' | 'navigate' | 'copy' | 'focus' | 'fold' | 'hand
 
 export interface LedgerEntry {
   id: string;
+  /** The latest state change. */
   at: number;
+  /** When the action was first proposed; deletions are judged by this, since `at` moves with every change. */
+  createdAt?: number;
   kind: LedgerKind;
   label: string;
   state: ActionState;

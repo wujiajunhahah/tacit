@@ -1,0 +1,5 @@
+{
+  "name": { "message": "Tacit — context harness" },
+  "short_name": { "message": "Tacit" },
+  "description": { "message": "Reads the page and how you got here, predicts what you need next, and hands the context to your AI agent. Local by default." }
+}

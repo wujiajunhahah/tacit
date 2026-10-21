@@ -3,9 +3,11 @@ import { contextOf, flat, isOwn, isVisible, labelOf, regionOf } from './dom';
 
 export interface Extracted {
   page: PageModel;
-  /** Block and action ids mapped to their DOM elements. */
+  /** Block and action ids mapped to the DOM elements on screen now. */
   elements: Map<string, Element>;
   feed: boolean;
+  /** Feeds only: every post seen this visit, including ones the page has since recycled. */
+  memory?: import('./feed').FeedMemory;
 }
 
 const ROOT_CANDIDATES = 'article, main, [role="main"], .markdown-body, #content, .content, .post, .entry-content, #main';

@@ -4,13 +4,16 @@
 import {
   HARNESS_ORIGIN,
   LocalEngine,
+  calibrate,
   domainOf,
+  forgetKey,
   inferIntent,
   sameDocument,
   searchQueryOf,
   type Arrival,
   type DecisionRequest,
   type DecisionResponse,
+  type ForgottenResponse,
   type HealthResponse,
   type IngestEvent,
   type LedgerEntry,
@@ -39,11 +42,12 @@ interface TabState {
 const TRAIL_KEY = 'tacit:trail';
 const LEDGER_KEY = 'tacit:ledger';
 const TABS_KEY = 'tacit:tabs';
+const FORGOT_KEY = 'tacit:forgotAt';
 const MAX_TRAIL = 300;
 const MAX_LEDGER = 200;
 const MAX_QUEUE = 500;
 
-const state = { loaded: false, trail: [] as Visit[], ledger: [] as LedgerEntry[], tabs: {} as Record<string, TabState> };
+const state = { loaded: false, trail: [] as Visit[], ledger: [] as LedgerEntry[], tabs: {} as Record<string, TabState>, forgotAt: 0 };
 const pages = new Map<string, PageModel>();
 const acked = new Set<string>();
 const queue: IngestEvent[] = [];
@@ -53,25 +57,34 @@ let health: { at: number; status: HarnessStatus } | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
 let flushing = false;
+let forgetting = false;
 
-function load(): Promise<void> {
+/** The web runtime (try-it-in-the-page demo) has no harness to talk to; it never touches the network. */
+const WEB = typeof globalThis !== 'undefined' && '__TACIT_WEB__' in globalThis;
+
+export function load(): Promise<void> {
   if (state.loaded) return Promise.resolve();
   loading ??= (async () => {
-    const [l, s] = await Promise.all([chrome.storage.local.get([TRAIL_KEY, LEDGER_KEY]), chrome.storage.session.get(TABS_KEY)]);
+    const [l, s] = await Promise.all([chrome.storage.local.get([TRAIL_KEY, LEDGER_KEY, FORGOT_KEY]), chrome.storage.session.get(TABS_KEY)]);
     state.trail = (l[TRAIL_KEY] as Visit[] | undefined) ?? [];
     state.ledger = (l[LEDGER_KEY] as LedgerEntry[] | undefined) ?? [];
+    state.forgotAt = (l[FORGOT_KEY] as number | undefined) ?? 0;
     state.tabs = (s[TABS_KEY] as Record<string, TabState> | undefined) ?? {};
     state.loaded = true;
   })();
   return loading;
 }
 
+function persist(): void {
+  void chrome.storage.local.set({ [TRAIL_KEY]: state.trail, [LEDGER_KEY]: state.ledger, [FORGOT_KEY]: state.forgotAt });
+  void chrome.storage.session.set({ [TABS_KEY]: state.tabs });
+}
+
 function save(): void {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    void chrome.storage.local.set({ [TRAIL_KEY]: state.trail, [LEDGER_KEY]: state.ledger });
-    void chrome.storage.session.set({ [TABS_KEY]: state.tabs });
-  }, 300);
+  // The page runtime lives and dies with its page, so it cannot wait to write.
+  if (WEB) persist();
+  else saveTimer = setTimeout(persist, 300);
 }
 
 function tab(id: number): TabState {
@@ -177,7 +190,49 @@ async function flush(): Promise<void> {
   }
 }
 
+/** Whether something was deleted in the harness: everything before `all`, and each deleted page's own history. */
+export async function forgottenTest(f: ForgottenResponse, urls: Iterable<string>): Promise<(url: string, at: number) => boolean> {
+  const pages = new Map(f.pages.map((p) => [p.key, p.at]));
+  const until = new Map<string, number>();
+  if (pages.size) {
+    for (const url of new Set(urls)) {
+      const at = pages.get(await forgetKey(url));
+      if (at !== undefined) until.set(url, at);
+    }
+  }
+  return (url, at) => at <= (f.all ?? -Infinity) || at <= (until.get(url) ?? -Infinity);
+}
+
+const entryAt = (e: LedgerEntry) => e.createdAt ?? e.at;
+const stampOf = (ev: IngestEvent) => (ev.kind === 'ledger' ? { url: ev.entry.url, at: entryAt(ev.entry) } : { url: ev.visit.url, at: ev.visit.startedAt });
+
+/** What you delete in the dashboard is forgotten here too: the trail, the actions, and anything still queued. */
+async function forget(latest: number): Promise<void> {
+  await load();
+  if (forgetting || latest <= state.forgotAt) return;
+  forgetting = true;
+  try {
+    const res = await fetch(`${HARNESS_ORIGIN}/v1/forgotten?since=${state.forgotAt}`, { signal: AbortSignal.timeout(2000) });
+    if (!res.ok) return;
+    const f = (await res.json()) as ForgottenResponse;
+    const gone = await forgottenTest(f, [...state.trail.map((v) => v.url), ...state.ledger.map((e) => e.url), ...queue.map((ev) => stampOf(ev).url)]);
+    state.trail = state.trail.filter((v) => !gone(v.url, v.startedAt));
+    state.ledger = state.ledger.filter((e) => !gone(e.url, entryAt(e)));
+    const kept = queue.filter((ev) => !gone(stampOf(ev).url, stampOf(ev).at));
+    queue.splice(0, queue.length, ...kept);
+    const live = new Set(state.trail.map((v) => v.id));
+    for (const id of [...pages.keys()]) if (!live.has(id)) pages.delete(id);
+    state.forgotAt = f.at;
+    save();
+  } catch {
+    // The next health check tries again.
+  } finally {
+    forgetting = false;
+  }
+}
+
 async function harnessStatus(force = false): Promise<HarnessStatus> {
+  if (WEB) return { connected: false, engine: 'local' };
   if (!force && health && Date.now() - health.at < 15_000) return health.status;
   let status: HarnessStatus = { connected: false, engine: 'local' };
   try {
@@ -185,6 +240,7 @@ async function harnessStatus(force = false): Promise<HarnessStatus> {
     if (res.ok) {
       const j = (await res.json()) as HealthResponse;
       status = { connected: true, engine: j.engine, model: j.model };
+      if (j.forgetAt) void forget(j.forgetAt);
     }
   } catch {
     // Harness not running; the extension works on its own.
@@ -254,6 +310,7 @@ async function startVisit(msg: Extract<ToBackground, { type: 'visit:start' }>, t
     trailTail: earlier.slice(-5).map(slim),
     visitedUrls: [...new Set(earlier.map((v) => v.url))].slice(-300),
     harness: await harnessStatus(),
+    calibration: calibrate(state.ledger),
   };
 }
 
@@ -286,7 +343,7 @@ function upsertLedger(entry: LedgerEntry): void {
   save();
 }
 
-async function handle(msg: ToBackground, sender: chrome.runtime.MessageSender): Promise<unknown> {
+export async function handle(msg: ToBackground, sender: chrome.runtime.MessageSender): Promise<unknown> {
   const tabId = sender.tab?.id ?? -1;
   switch (msg.type) {
     case 'visit:start':

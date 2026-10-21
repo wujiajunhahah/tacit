@@ -1,5 +1,6 @@
 node_modules/
 extension/dist/
+dist/
 *.zip
 *.db
 *.db-wal

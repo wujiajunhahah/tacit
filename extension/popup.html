@@ -33,56 +33,84 @@
         font: 13px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
         -webkit-font-smoothing: antialiased;
       }
+      html:lang(zh-CN) body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif; }
       h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.01em; display: flex; align-items: center; gap: 9px; }
       h1 i { width: 8px; height: 8px; background: var(--ink); transform: rotate(45deg); display: inline-block; }
       .lede { margin: 4px 0 14px; color: var(--ink-2); }
       .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--rule); }
+      .row > span { min-width: 0; }
       .row span small { display: block; color: var(--ink-3); font-size: 12px; }
       .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); display: inline-block; margin-right: 7px; vertical-align: 1px; }
       .dot.on { background: var(--lime); }
       code, .mono { font: 11.5px/1.5 ui-monospace, "SF Mono", Menlo, monospace; }
-      input[type="checkbox"] { width: 30px; height: 18px; appearance: none; border-radius: 9px; background: var(--rule); position: relative; cursor: pointer; flex: none; transition: background 0.14s; }
+      input[type="checkbox"] { width: 30px; height: 18px; appearance: none; border-radius: 9px; background: var(--rule); position: relative; cursor: pointer; flex: none; transition: background 0.14s; margin: 0; }
       input[type="checkbox"]::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--paper); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); transition: transform 0.14s; }
       input[type="checkbox"]:checked { background: var(--ink); }
       input[type="checkbox"]:checked::after { transform: translateX(12px); }
-      textarea { width: 100%; min-height: 64px; margin-top: 6px; padding: 7px 8px; border: 1px solid var(--rule); border-radius: 5px; background: transparent; color: var(--ink); resize: vertical; }
+      input[type="checkbox"]:focus-visible, select:focus-visible, input[type="range"]:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
+      .dwell { display: flex; align-items: center; gap: 10px; padding: 0 0 10px; }
+      .row[hidden], .dwell[hidden] { display: none; }
+      input[type="range"] { flex: 1; accent-color: var(--ink); }
+      .dwell output { font: 11.5px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink-2); min-width: 92px; text-align: right; }
+      select { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--rule); border-radius: 5px; padding: 3px 6px; }
+      textarea { width: 100%; min-height: 64px; margin-top: 6px; padding: 7px 8px; border: 1px solid var(--rule); border-radius: 5px; background: transparent; color: var(--ink); resize: vertical; font: 12px/1.5 ui-monospace, "SF Mono", Menlo, monospace; }
       details summary { cursor: pointer; color: var(--ink-2); padding: 10px 0 0; border-top: 1px solid var(--rule); }
+      details small { display: block; color: var(--ink-3); font-size: 12px; margin-top: 4px; }
       button { all: unset; cursor: pointer; padding: 6px 9px; border-radius: 5px; border: 1px solid var(--rule); color: var(--ink); }
       button:hover { border-color: var(--ink-3); }
+      button:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
       .actions { display: flex; gap: 6px; margin-top: 12px; }
       .muted { color: var(--ink-3); }
+      #mcp-help { word-break: break-all; margin: 10px 0 0; }
     </style>
   </head>
   <body>
     <h1><i></i>Tacit</h1>
-    <p class="lede">Reads the page and how you got here. Local by default.</p>
+    <p class="lede" data-i18n="popup.lede"></p>
 
     <div class="row">
-      <span><span id="dot" class="dot"></span><span id="harness">Checking the harness…</span><small id="engine"></small></span>
+      <span><span id="dot" class="dot"></span><span id="harness" data-i18n="popup.checking"></span><small id="engine"></small></span>
     </div>
     <div class="row">
-      <span>Read pages<small>Pause Tacit everywhere</small></span>
-      <input id="active" type="checkbox" aria-label="Read pages" />
+      <span data-i18n="popup.read"></span>
+      <input id="active" type="checkbox" />
+    </div>
+    <div class="row" id="site-row">
+      <span id="site"></span>
+      <input id="site-active" type="checkbox" />
     </div>
     <div class="row">
-      <span>On <b id="site">this site</b><small>Pause only here</small></span>
-      <input id="site-active" type="checkbox" aria-label="Read this site" />
+      <span><span data-i18n="popup.pointer"></span><small data-i18n="popup.pointer.sub"></small></span>
+      <input id="pointer" type="checkbox" />
+    </div>
+    <div class="dwell" id="dwell-row" hidden>
+      <input id="dwell" type="range" min="600" max="4000" step="100" />
+      <output id="dwell-label" for="dwell"></output>
+    </div>
+    <div class="row">
+      <span data-i18n="popup.language"></span>
+      <select id="locale">
+        <option value="auto" data-i18n="popup.language.auto"></option>
+        <option value="en">English</option>
+        <option value="zh-CN">简体中文</option>
+      </select>
     </div>
     <div class="row">
       <span class="muted" id="counts"></span>
     </div>
 
     <details>
-      <summary>Never read these sites</summary>
+      <summary data-i18n="popup.never"></summary>
+      <small data-i18n="popup.never.sub"></small>
       <textarea id="excluded" spellcheck="false"></textarea>
-      <div class="actions"><button id="save-excluded">Save</button></div>
+      <div class="actions"><button id="save-excluded" data-i18n="popup.save"></button></div>
     </details>
 
     <div class="actions">
-      <button id="ledger">Open context ledger</button>
-      <button id="mcp">Connect an agent</button>
+      <button id="ledger" data-i18n="popup.dashboard"></button>
+      <button id="mcp" data-i18n="popup.connect"></button>
     </div>
-    <p id="mcp-help" class="muted mono" hidden>bun run harness<br />claude mcp add tacit -- bun /path/to/tacit/daemon/mcp.ts</p>
+    <p id="mcp-help" class="muted mono" hidden></p>
 
     <script src="dist/popup.js"></script>
   </body>

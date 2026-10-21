@@ -1,6 +1,6 @@
 # Privacy policy
 
-Effective 18 October 2026. This policy covers the Tacit browser extension and the Tacit harness, the program in this repository that runs on your computer.
+Effective 21 October 2026. This policy covers the Tacit browser extension and the Tacit harness, the program in this repository that runs on your computer.
 
 **In short:** Tacit reads the pages you visit so it can hand them to your AI agent. What it reads stays in your browser and, if you run it, the Tacit harness on your own computer at `127.0.0.1`. Nothing is sent to the developer, and there is no analytics, telemetry or advertising. The one exception is optional: if you give the harness your own TypeSafe API key, it sends short decision requests to TypeSafe, described exactly below.
 
@@ -14,7 +14,8 @@ On every `http` and `https` page that is not skipped or paused (see below):
 
 - **The page:** its address, title, language and description, and its readable text: headings, paragraphs, list items, code blocks, quotes and captions. Its links and buttons: their text, address and the sentence around them. On X (Twitter) timelines, the text and author of each post.
 - **How you got there:** the address of the page you came from, the search you ran, the link you clicked, the tab that opened it, and the kind of navigation (typed, link, back/forward, reload, bookmark, redirect).
-- **What you do there:** how long the page is visible and focused, how far you scroll, the text you select or copy on the page, the links and buttons you click (their text and address), and any intent you pick in Tacit.
+- **What you do there:** how long the page is visible and focused, how far you scroll, the text you select or copy on the page, the links, buttons and posts you click (their text, up to 80 characters for a post, and address), and any intent you pick in Tacit.
+- **What you read closely:** which passages hold the middle of the screen for 4 seconds of reading or more (time there is split between the passages it shows) while the tab is visible and focused, and, only if you turn on "Read with the pointer" in the popup, which passage your pointer rests on for longer than the threshold you set (0.6 to 4 seconds). For each, Tacit keeps the passage's text (up to 300 characters) and how long, for up to 30 passages per visit. It does not record where your pointer is or how it moves, and it ignores skimming, hidden tabs and any minute without input.
 
 Tacit does not read passwords, cookies or other credentials, and does not read what you type into forms unless you select or copy that text yourself. It never reads your clipboard.
 
@@ -22,7 +23,7 @@ A page can show anything: messages, names, account details. Tacit reads whatever
 
 ## Where it goes
 
-1. **Your browser's extension storage,** on this computer and not synced to your Google account. Your settings; the last 300 visits (address, title, times, scroll depth, how you arrived, and up to 20 selections and 20 copies of up to 2,000 characters each, and up to 30 clicks per visit); and the last 200 actions Tacit took. Per-tab navigation state is kept in session storage, which the browser clears when it closes. The text of recent pages is held in memory only.
+1. **Your browser's extension storage,** on this computer and not synced to your Google account. Your settings; the last 300 visits (address, title, times, scroll depth, how you arrived, up to 20 selections and 20 copies of up to 2,000 characters each, up to 30 clicks and up to 30 passages read closely per visit); and the last 200 actions Tacit took. Per-tab navigation state is kept in session storage, which the browser clears when it closes. The text of recent pages is held in memory only.
 2. **The Tacit harness, if you run it.** The extension sends pages, visits and actions to `http://127.0.0.1:7766`, a program on your own computer. This traffic stays on the loopback interface and never leaves the machine. The harness stores it in a SQLite file, `~/.tacit/tacit.db` (or `$TACIT_HOME`), readable only by your user account (a 0600 file in a 0700 folder). It listens only on `127.0.0.1` and refuses requests from web pages. Like any local data, it is open to other programs running under your account, and other browser extensions can reach the harness too; [SECURITY.md](SECURITY.md) lists these limits.
 3. **Your clipboard, when you ask.** Alt+Shift+C (⌥⇧C) copies a Markdown summary of the page for your agent; a copy suggestion copies a command from the page. Where you paste it is up to you.
 4. **Nowhere else.** The extension contacts no host other than `127.0.0.1`. Your data is not sold, not shared with advertisers, and not read by anyone else.
@@ -32,7 +33,7 @@ A page can show anything: messages, names, account details. Tacit reads whatever
 The harness can ask Jev, a decision model from [TypeSafe](https://typesafe.ai), which suggestion fits what you are doing. This is off unless you start the harness with your own `TYPESAFE_API_KEY`; the extension popup then says "Decisions by Jev". The harness, not the extension, sends each request over HTTPS to `https://api.typesafe.ai` (or the `TYPESAFE_BASE_URL` you set), with your key. Each request contains:
 
 - your inferred intent, up to 80 characters (for example a recent search, or a passage you selected or copied);
-- up to three lines of evidence behind it, such as `searched “jev latency” · 3 min ago`, quoting up to 60 characters each, drawn from your recent pages on any site Tacit reads;
+- up to three lines of evidence behind it, such as `searched “jev latency” · 3 min ago` or `read closely “Below roughly 400 milliseconds…”`, quoting up to 60 characters each, drawn from your recent pages on any site Tacit reads;
 - the current page's title, full address and kind (article, feed, repository, search);
 - the candidates being judged: on most pages, up to 12 next steps on the page, each a label (up to 80 characters) with the text around it (up to 160 characters), such as a section heading with a snippet of its passage, the first line of a code block, or a link's text and its sentence, but not link addresses; on X timelines, up to 40 posts, each with its text (up to 500 characters) and author name.
 
@@ -40,11 +41,11 @@ Nothing else is sent: not your ledger, not other pages, not the rest of your his
 
 ## Agents you connect
 
-If you connect an AI agent (Claude Code, Cursor or any MCP client) to the harness, that agent can read your current page, your intent, your trail and the pages you have read, through five read-only tools. The agent then sends what it reads to its own model provider, under that provider's terms. Tacit cannot control that, so connect only agents you trust.
+If you connect an AI agent (Claude Code, Cursor or any MCP client) to the harness, that agent can read your current page, your intent, your trail and the pages you have read, including the passages you read closely, through five read-only tools. The agent then sends what it reads to its own model provider, under that provider's terms. Tacit cannot control that, so connect only agents you trust.
 
 ## Sites Tacit skips, and pausing
 
-- By default Tacit never reads Gmail (`mail.google.com`), Google Account pages (`accounts.google.com`), PayPal, 1Password, Bitwarden or LastPass. You can edit this list in the popup under "Never read these sites".
+- By default Tacit never reads Gmail (`mail.google.com`), Google Account pages (`accounts.google.com`), PayPal, 1Password, Bitwarden or LastPass, nor X messages and chats (`x.com/messages`, `x.com/i/chat`, `twitter.com/messages`). On X, Tacit stops the moment you open your messages. You can edit this list in the popup under "Never read these sites"; an entry is a site, or a site and a path.
 - The popup can pause Tacit everywhere, or on the current site only.
 - On a skipped or paused site, Tacit does not run on the page and records no visit. Like any extension that uses Chrome's navigation events, its background script still sees the address of each navigation, and keeps the latest one per tab in session state only, to work out how you reached the next page. If you follow a link out of a skipped site and that tab has no earlier page in your trail, the next page's record can name the skipped site's address, as given by the browser's referrer, as where you came from.
 - Chrome does not run Tacit in Incognito windows unless you allow it on `chrome://extensions`. If you do, Incognito pages are read and stored like any other.
@@ -52,7 +53,9 @@ If you connect an AI agent (Claude Code, Cursor or any MCP client) to the harnes
 ## How long it is kept, and how to delete it
 
 - Extension storage keeps the last 300 visits and the last 200 actions. Removing the extension deletes all of it.
-- The harness keeps the newest 5,000 visits and the pages they point to, and its action ledger until you delete it. Delete the `~/.tacit` folder to erase everything.
+- The harness keeps the newest 5,000 visits and the pages they point to, and its action ledger until you delete it.
+- The dashboard at `http://127.0.0.1:7766` deletes one page (with its visits and what Tacit did there) or everything. The extension forgets the same from its own storage the next time it reaches the harness, and the harness refuses any older copy that arrives later. For that, the harness remembers each deleted page by a SHA-256 hash of its address (the last 1,000 of them) and the time you last deleted everything; it does not keep the address. Treat the folder as private all the same: someone holding the file could still check whether an address they guess was deleted.
+- Delete the `~/.tacit` folder to erase everything the harness holds, tombstones included.
 
 ## Limited Use
 

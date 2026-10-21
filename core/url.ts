@@ -24,6 +24,12 @@ export function searchQueryOf(url: string | undefined): string | undefined {
   return undefined;
 }
 
+/** A deleted page is remembered by a hash of its address, never by the address itself. */
+export async function forgetKey(url: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(url));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 /** Same page, ignoring hash and trailing slash. */
 export function sameDocument(a: string | undefined, b: string | undefined): boolean {
   if (!a || !b) return false;

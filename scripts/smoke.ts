@@ -20,6 +20,6 @@ const stats = await page.evaluate(() => ({
 console.log('stats:', stats);
 await openSlip(page);
 await page.screenshot({ path: `${out}/smoke.png` });
-console.log('slip:', (await page.locator('tacit-capsule .slip').innerText()).replace(/\s+/g, ' ').slice(0, 400));
+console.log('slip:', (await page.locator('tacit-capsule .tc').innerText()).replace(/\s+/g, ' ').slice(0, 400));
 console.log(errors.length ? errors.join('\n') : 'no errors');
 await b.close();

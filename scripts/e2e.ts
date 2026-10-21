@@ -1,8 +1,8 @@
 // End-to-end: real Chromium + the built extension + the demo site + a harness on a throwaway ledger.
 // Usage: bun run scripts/e2e.ts [--headed] [--live]
 
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -10,7 +10,7 @@ import type { Page } from 'playwright';
 import { HARNESS_ORIGIN, HARNESS_PORT } from '../core';
 import { startHarness } from '../daemon/server';
 import { startDemo } from '../demo/serve';
-import { capsuleText, launch, openSlip, ROOT } from './browser';
+import { capsuleText, launch, openSlip, ROOT, searchThenOpen as openFrom } from './browser';
 
 const headed = process.argv.includes('--headed');
 const live = process.argv.includes('--live');
@@ -34,24 +34,33 @@ async function shot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: join(shots, `${name}.png`) });
 }
 
+/** Screenshots go into a public repo: no local paths in them. */
+async function maskPaths(page: Page): Promise<void> {
+  const swaps: [string, string][] = [[realpathSync(home), '~/.tacit'], [home, '~/.tacit'], [homedir(), '~']];
+  await page.evaluate((pairs) => {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      let text = n.textContent ?? '';
+      for (const [from, to] of pairs) text = text.split(from).join(to);
+      if (text !== n.textContent) n.textContent = text;
+    }
+  }, swaps);
+}
+
 async function closeSlip(page: Page): Promise<void> {
   await page.mouse.move(40, 40);
   await page.waitForTimeout(450);
 }
 
 const scrollY = (page: Page) => page.evaluate(() => Math.round(window.scrollY));
-const toastText = (page: Page) => page.locator('tacit-capsule .toast').innerText();
+/** A confirmation shows in the line itself, for a few seconds. */
+const toastText = (page: Page) => page.locator('tacit-capsule .tc[data-note] .line').innerText().then((s) => s.replace(/\s+/g, ' ').trim());
 
 async function api<T>(path: string): Promise<T> {
   return (await fetch(`${HARNESS_ORIGIN}${path}`)).json() as Promise<T>;
 }
 
-async function searchThenOpen(page: Page, query: string, target: string): Promise<void> {
-  await page.goto(`${site}/search.html?q=${encodeURIComponent(query).replace(/%20/g, '+')}`);
-  await capsuleText(page);
-  await page.locator(`a[href*="${target}"]:not([href*="#"])`).first().click();
-  await page.waitForURL(new RegExp(target.replace('.', '\\.')));
-}
+const searchThenOpen = (page: Page, query: string, target: string) => openFrom(page, site, query, target);
 
 async function articleFlow(page: Page): Promise<void> {
   await searchThenOpen(page, 'decision latency', 'article.html');
@@ -63,8 +72,10 @@ async function articleFlow(page: Page): Promise<void> {
   await shot(page, 'article-line');
 
   await openSlip(page);
+  const head = (await page.locator('tacit-capsule .line').innerText()).replace(/\s+/g, ' ').trim();
   const slip = (await page.locator('tacit-capsule .slip').innerText()).replace(/\s+/g, ' ');
-  check('article: the slip shows the intent in your words', slip.startsWith('decision latency') && slip.includes('from your search'), slip.slice(0, 120));
+  check('article: open, the line holds your intent in your words and where it came from', head.startsWith('decision latency') && head.includes('from your search'), head);
+  check('article: the slip lists the steps once, not again in the line', slip.includes('Jump to') && !head.includes('Jump to'), slip.slice(0, 120));
   await shot(page, 'article-slip');
   await closeSlip(page);
 
@@ -73,8 +84,11 @@ async function articleFlow(page: Page): Promise<void> {
   await page.waitForTimeout(1100);
   const y1 = await scrollY(page);
   check('jump: ⌥↵ scrolls to the answer', y1 > y0 + 200, `${y0} → ${y1}`);
-  check('jump: the toast confirms and offers undo', /Jumped to/.test(await toastText(page)), await toastText(page));
+  const note = await toastText(page);
+  check('jump: the line confirms and offers undo', /^Jumped to .*Undo$/.test(note), note);
   await shot(page, 'article-jump');
+  // Read the answer for a while, as people do: the passages in the middle of the screen become context.
+  await page.waitForTimeout(9000);
 
   await page.keyboard.press('Alt+Shift+KeyZ');
   await page.waitForTimeout(1100);
@@ -96,6 +110,8 @@ async function articleFlow(page: Page): Promise<void> {
   const packet = await page.evaluate(() => navigator.clipboard.readText());
   check('handoff: ⌥⇧C puts a context packet on the clipboard', packet.startsWith('# Context: '), packet.split('\n')[0] ?? '');
   check('handoff: the packet says how you got here', packet.includes('searched “decision latency”'));
+  const lingered = packet.split('## Passages I read closely')[1]?.split('\n##')[0]?.trim() ?? '';
+  check('handoff: the packet has the passage you lingered on', /latency|milliseconds/i.test(lingered), lingered.split('\n')[0]?.slice(0, 90) ?? 'none');
   const m = packet.match(/~(\d+) tokens instead of ~(\d+)/);
   check('handoff: the packet is smaller than the page', !!m && Number(m[1]) < Number(m[2]), m ? `${m[1]} vs ${m[2]} tokens` : 'no token line');
   await shot(page, 'article-handoff');
@@ -136,6 +152,52 @@ async function repoFlow(page: Page): Promise<void> {
   await shot(page, 'repo');
 }
 
+/** Every dashboard view renders from the real ledger, in both languages; the screenshots in docs come from here. */
+async function dashboardFlow(page: Page): Promise<void> {
+  const article = `${site}/article.html`;
+  const views: [string, string][] = [
+    ['now', '#/now'],
+    ['library', '#/library'],
+    ['page', `#/page?url=${encodeURIComponent(article)}`],
+    ['trail', '#/trail'],
+    ['learned', '#/learned'],
+    ['connect', '#/connect'],
+    ['privacy', '#/privacy'],
+  ];
+  const empty: string[] = [];
+  for (const [name, hash] of views) {
+    await page.goto(`${HARNESS_ORIGIN}/${hash}`);
+    await page.waitForTimeout(900);
+    const text = (await page.locator('#view').innerText()).trim();
+    if (text.length < 40) empty.push(name);
+    await maskPaths(page);
+    await shot(page, `dashboard-${name}`);
+  }
+  check('dashboard: every view renders from the ledger', empty.length === 0, empty.length ? `empty: ${empty.join(', ')}` : `${views.length} views`);
+  const library = await page.goto(`${HARNESS_ORIGIN}/#/library`).then(() => page.waitForTimeout(900)).then(() => page.locator('#view').innerText());
+  check('dashboard: the library lists the pages you read', /context harness/i.test(library));
+  await page.evaluate(() => localStorage.setItem('tacit.locale', 'zh-CN'));
+  for (const [name, hash] of [views[1]!, views[2]!]) {
+    await page.goto(`${HARNESS_ORIGIN}/${hash}`);
+    await page.reload();
+    await page.waitForTimeout(900);
+    await shot(page, `dashboard-${name}-zh`);
+  }
+  const nav = await page.locator('#nav-links').innerText();
+  check('dashboard: switches to Chinese', /[\u4e00-\u9fff]/.test(nav), nav.replace(/\s+/g, ' '));
+  await page.evaluate(() => localStorage.removeItem('tacit.locale'));
+
+  // Deleting a page in the dashboard reaches the extension's own copy of the trail.
+  const serp = (await api<{ visit: { url: string } }[]>('/v1/trail?limit=50')).find((t) => t.visit.url.includes('search.html?q=decision'))!.visit.url;
+  const status = await page.evaluate((u) => fetch(`/v1/page?url=${encodeURIComponent(u)}`, { method: 'DELETE' }).then((r) => r.status), serp);
+  const popup = await b.context.newPage();
+  await popup.goto(`chrome-extension://${b.extensionId}/popup.html`);
+  await popup.waitForTimeout(1500);
+  await popup.close();
+  const trail = await b.worker.evaluate(async () => ((await chrome.storage.local.get('tacit:trail'))['tacit:trail'] as { url: string }[]).map((v) => v.url));
+  check('dashboard: a page deleted there is forgotten by the extension too', status === 200 && !trail.includes(serp) && trail.length > 0, `${trail.length} visits left`);
+}
+
 async function harnessChecks(page: Page): Promise<void> {
   await page.waitForTimeout(2500);
   const trail = await api<{ visit: { arrival: { kind: string; searchQuery?: string } } }[]>('/v1/trail?limit=50');
@@ -155,6 +217,7 @@ async function harnessChecks(page: Page): Promise<void> {
   await page.goto(`${HARNESS_ORIGIN}/`);
   await page.waitForTimeout(1500);
   await shot(page, 'ledger');
+  await dashboardFlow(page);
 
   const popup = await b.context.newPage();
   await popup.setViewportSize({ width: 340, height: 460 });
@@ -198,16 +261,80 @@ async function askFlow(): Promise<void> {
     check('ask: with no context the line stays quiet instead of guessing', mode === 'ask' || mode === 'quiet', `mode ${mode}`);
     await openSlip(page);
     await shot(page, 'ask');
-    const choice = page.locator('tacit-capsule .choice', { hasText: 'Latency' }).first();
-    check('ask: section titles are offered as choices', (await choice.count()) > 0);
-    if (await choice.count()) {
-      await choice.click();
+    const choices = page.locator('tacit-capsule .choice');
+    const offered = await choices.count();
+    check('ask: section titles are offered as choices, one key each', offered > 0 && offered <= 3, `${offered} choices`);
+    if (offered) {
+      const name = (await choices.first().locator('.l').innerText()).trim();
+      const before = await scrollY(page);
+      await choices.first().click();
       await page.waitForTimeout(800);
       await closeSlip(page);
-      const picked = await capsuleText(page);
-      check('ask: picking a choice makes the line act on it', /Latency/.test(picked) && picked.includes('you said'), picked);
+      const note = await toastText(page);
+      check('ask: picking a section takes you there in one step', (await scrollY(page)) > before + 200 && note.startsWith('Jumped to') && note.includes(name), note);
       await shot(page, 'ask-picked');
+      await page.waitForTimeout(4200);
+      const after = await capsuleText(page);
+      check('ask: then the line moves on, on what you said', after.includes('you said') && !after.includes(`Jump to ${name}`), after);
     }
+  } finally {
+    await b.close();
+  }
+}
+
+/** Reading with the pointer is off until the user turns it on; then a passage the pointer rests on becomes context. */
+async function pointerFlow(): Promise<void> {
+  const b = await launch({ headless: !headed });
+  try {
+    const popup = await b.context.newPage();
+    await popup.goto(`chrome-extension://${b.extensionId}/popup.html`);
+    await popup.waitForTimeout(500);
+    await popup.locator('#pointer').check();
+    await popup.locator('#dwell').fill('600');
+    await popup.waitForTimeout(300);
+    const saved = await b.worker.evaluate(async () => (await chrome.storage.local.get('tacit:settings'))['tacit:settings'] as { readWithPointer?: boolean; pointerDwellMs?: number } | undefined);
+    check('popup: pointer reading and its threshold are saved', saved?.readWithPointer === true && saved?.pointerDwellMs === 600, JSON.stringify({ on: saved?.readWithPointer, ms: saved?.pointerDwellMs }));
+    await popup.close();
+
+    const page = await b.context.newPage();
+    await searchThenOpen(page, 'decision latency', 'article.html');
+    await capsuleText(page);
+    const para = page.locator('h2:has-text("The context ledger") ~ p').first();
+    await para.scrollIntoViewIfNeeded();
+    const box = (await para.boundingBox())!;
+    for (let i = 0; i < 14; i++) {
+      await page.mouse.move(box.x + 40 + i * 18, box.y + 10 + (i % 3) * 4, { steps: 3 });
+      await page.waitForTimeout(160);
+    }
+    await page.waitForTimeout(900);
+    await page.mouse.move(20, 20);
+    await page.keyboard.press('Alt+Shift+KeyC');
+    await page.waitForTimeout(500);
+    const md = await page.evaluate(() => navigator.clipboard.readText());
+    const passage = (await para.innerText()).slice(0, 40);
+    check('pointer: the passage the pointer rested on is in the packet', md.includes('## Passages I read closely') && md.includes(passage), passage);
+  } finally {
+    await b.close();
+  }
+}
+
+/** Tacit follows the browser's language: a Chinese browser gets Chinese, from the line to the popup. */
+async function chineseFlow(): Promise<void> {
+  const b = await launch({ headless: !headed, lang: 'zh-CN' });
+  try {
+    const page = await b.context.newPage();
+    await searchThenOpen(page, '上下文 agent 复制粘贴', 'feed.html');
+    const line = await capsuleText(page);
+    check('zh-CN: a Chinese browser gets a Chinese line', /条里有/.test(line) && line.includes('来自你的搜索'), line);
+    await openSlip(page);
+    await shot(page, 'feed-zh');
+    const popup = await b.context.newPage();
+    await popup.setViewportSize({ width: 340, height: 560 });
+    await popup.goto(`chrome-extension://${b.extensionId}/popup.html`);
+    await popup.waitForTimeout(900);
+    const status = await popup.locator('#harness').innerText();
+    check('zh-CN: the popup speaks Chinese', /[\u4e00-\u9fff]/.test(status), status);
+    await popup.screenshot({ path: join(shots, 'popup-zh.png') });
   } finally {
     await b.close();
   }
@@ -253,6 +380,8 @@ try {
   await harnessChecks(page);
   await mcpFlow();
   await askFlow();
+  await pointerFlow();
+  await chineseFlow();
   await darkFlow();
   if (live) await liveFlow();
   check('no errors in the page or the service worker', errors.length === 0, errors.slice(0, 3).join(' | '));

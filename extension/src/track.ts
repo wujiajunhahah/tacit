@@ -1,7 +1,8 @@
 // What the user does on the page: dwell, scroll depth, selections, copies, clicks.
 
 import { clip, type Click, type Moment } from '../../core';
-import { isOwn, labelOf } from './extract/dom';
+import { flat, isOwn, labelOf } from './extract/dom';
+import { POST } from './extract/feed';
 
 export interface TrackState {
   dwellMs: number;
@@ -23,6 +24,24 @@ export interface Tracker {
 function push<T>(list: T[], item: T, cap: number): void {
   list.push(item);
   if (list.length > cap) list.splice(0, list.length - cap);
+}
+
+const CLICKABLE = `a[href], button, [role="button"], [role="link"], ${POST}`;
+
+/** "3h" or "12" says nothing about where a click leads; use the post or passage it belongs to. */
+function meaningfulLabel(el: Element): string {
+  const post = el.closest(POST);
+  const postText = flat(post?.querySelector('[data-testid="tweetText"]')?.textContent);
+  if (el === post) return postText ? clip(postText, 80) : labelOf(el);
+  const label = labelOf(el);
+  if (label.length > 4 && !/^\d+\s?[smhd]$/i.test(label)) return label;
+  const text = postText || flat(el.closest('[data-tacit-id]')?.textContent);
+  return text ? clip(text, 80) : label;
+}
+
+/** Where a click leads: the link itself, or the permalink of the post that was clicked. */
+function hrefOf(el: Element): string | undefined {
+  return (el as HTMLAnchorElement).href || el.closest(POST)?.querySelector<HTMLAnchorElement>('a[href*="status"]')?.href || undefined;
 }
 
 export function startTracker(onEvent: (e: TrackEvent, click?: Click) => void): Tracker {
@@ -89,12 +108,13 @@ export function startTracker(onEvent: (e: TrackEvent, click?: Click) => void): T
     (e) => {
       if (!e.isTrusted) return;
       const target = e.target as Element | null;
-      if (!target || isOwn(target)) return;
-      const el = target.closest?.('a[href], button, [role="button"]');
+      // A click on a fold opens it; the posts inside were never seen, so they are not evidence.
+      if (!target || isOwn(target) || target.closest?.('[data-tacit-folded]')) return;
+      const el = target.closest?.(CLICKABLE);
       if (!el) return;
-      const label = labelOf(el);
+      const label = meaningfulLabel(el);
       if (!label) return;
-      const click: Click = { label, href: (el as HTMLAnchorElement).href || undefined, at: Date.now() };
+      const click: Click = { label, href: hrefOf(el), at: Date.now() };
       push(state.clicks, click, 30);
       onEvent('click', click);
     },

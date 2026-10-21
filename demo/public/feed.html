@@ -319,10 +319,12 @@ Folding needs reasons, not silence.</div>
   </div>
   <script src="assets/posts.js"></script>
   <script src="assets/murmur.js"></script>
+  <script src="assets/xmode.js"></script>
   <script>
     // Infinite scroll: within 600px of the bottom, append the next batch of posts, three batches at most.
     (function () {
       'use strict';
+      if (location.pathname.indexOf('/x/') === 0) return; // X mode virtualises the whole list itself
       var timeline = document.querySelector('[aria-label="Timeline: Your Home Timeline"]');
       var button = document.getElementById('show-more');
       var caughtUp = document.getElementById('caught-up');

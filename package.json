@@ -31,6 +31,7 @@
     "mcp": "bun run daemon/mcp.ts",
     "demo": "bun run demo/serve.ts",
     "e2e": "bun run scripts/e2e.ts",
+    "e2e:web": "bun run scripts/e2e-web.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "record": "bun run scripts/record.ts",
     "smoke": "bun run scripts/smoke.ts",

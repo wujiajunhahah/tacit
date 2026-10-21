@@ -65,7 +65,7 @@ export function buildPacket(input: PacketInput): Packet {
   if (intent.source !== 'none' && intent.text) {
     const label = intent.source === 'stated' ? 'stated' : `inferred · ${Math.round(intent.confidence * 100)}%`;
     lines.push(`**What I'm trying to do** (${label}): ${intent.text}`);
-    for (const ev of intent.evidence.slice(0, 3)) lines.push(`- ${describeEvidence(ev, now)}`);
+    for (const ev of intent.evidence.filter((e) => e.kind !== 'read').slice(0, 3)) lines.push(`- ${describeEvidence(ev, now)}`);
     lines.push('');
   }
 
@@ -77,10 +77,18 @@ export function buildPacket(input: PacketInput): Packet {
     lines.push('**I selected:**', ...clip(selection, 1200).split('\n').map((l) => `> ${l}`), '');
   }
 
+  const reads = (visit?.reads ?? []).slice(0, 4);
+  if (reads.length) {
+    lines.push('## Passages I read closely');
+    for (const r of reads) lines.push(`- (${Math.max(1, Math.round(r.ms / 1000))} s) ${clip(r.text, 400)}`);
+    lines.push('');
+  }
+
+  const read = new Set(reads.map((r) => r.blockId));
   const order = new Map(page.blocks.map((b, i) => [b.id, i]));
-  const passages = topBlocks(input.ranked ?? [], input.maxPassages ?? 5).sort(
-    (a, b) => (order.get(a.item.id) ?? 0) - (order.get(b.item.id) ?? 0),
-  );
+  const passages = topBlocks(input.ranked ?? [], input.maxPassages ?? 5)
+    .filter((r) => !read.has(r.item.id))
+    .sort((a, b) => (order.get(a.item.id) ?? 0) - (order.get(b.item.id) ?? 0));
   if (passages.length) {
     lines.push('## Most relevant on this page');
     let section = '';

@@ -1,21 +1,29 @@
-// The harness daemon: a loopback-only HTTP API over the local context ledger, plus the ledger UI.
+// The harness daemon: a loopback-only HTTP API over the local context ledger, plus the dashboard.
 
+import { dirname } from 'node:path';
 import {
   HARNESS_PORT,
   HARNESS_VERSION,
+  calibrate,
+  type CalibrationResponse,
   type DecideResponse,
+  type DeleteResponse,
   type HealthResponse,
   type IngestEvent,
   type IngestResponse,
 } from '../core';
+import { connectInfo } from './connect';
 import { Store, tacitHome, type Env } from './db';
 import { chooseEngine, type EngineChoice } from './engine';
-import { corsHeaders, hostAllowed, originAllowed } from './guard';
+import { CONFIRM_DELETE_ALL, CONFIRM_HEADER, corsHeaders, deleteAllowed, hostAllowed, originAllowed } from './guard';
+import * as library from './library';
 import * as queries from './queries';
-import { DecideSchema, IngestEnvelopeSchema, IngestEventSchema, firstIssue } from './schemas';
+import { DecideSchema, IngestEnvelopeSchema, IngestEventSchema, PagesQuerySchema, firstIssue } from './schemas';
 import { renderUi } from './ui';
 
 export const MAX_BODY_BYTES = 2 * 1024 * 1024;
+/** Calibration looks at this many of the newest actions. */
+const CALIBRATION_WINDOW = 5000;
 
 export interface HarnessOptions {
   port?: number;
@@ -34,48 +42,51 @@ export interface Harness {
 interface Ctx {
   store: Store;
   engine: EngineChoice;
+  home: string;
   port: number;
 }
 
+type Method = 'GET' | 'POST' | 'DELETE';
 type Handler = (req: Request, url: URL, ctx: Ctx) => Response | Promise<Response>;
 
-const ROUTES: Record<string, { method: 'GET' | 'POST'; run: Handler }> = {
-  '/': { method: 'GET', run: () => ui() },
-  '/v1/health': { method: 'GET', run: (_req, _url, ctx) => json(health(ctx)) },
-  '/v1/ingest': { method: 'POST', run: ingest },
-  '/v1/decide': { method: 'POST', run: decide },
+const ROUTES: Record<string, Partial<Record<Method, Handler>>> = {
+  '/': { GET: () => ui() },
+  '/v1/health': { GET: (_req, _url, ctx) => json(health(ctx)) },
+  '/v1/ingest': { POST: ingest },
+  '/v1/decide': { POST: decide },
   '/v1/context/current': {
-    method: 'GET',
-    run: (_req, url, ctx) =>
+    GET: (_req, url, ctx) =>
       json(queries.currentContext(ctx.store, { maxPassages: intParam(url, 'max_passages', 1, 10) })),
   },
-  '/v1/trail': {
-    method: 'GET',
-    run: (_req, url, ctx) => json(queries.trail(ctx.store, intParam(url, 'limit', 1, 200) ?? 20)),
-  },
+  '/v1/trail': { GET: (_req, url, ctx) => json(queries.trail(ctx.store, intParam(url, 'limit', 1, 200) ?? 20)) },
   '/v1/search': {
-    method: 'GET',
-    run: (_req, url, ctx) =>
+    GET: (_req, url, ctx) =>
       json(queries.search(ctx.store, url.searchParams.get('q') ?? '', intParam(url, 'limit', 1, 50) ?? 10)),
   },
-  '/v1/page': { method: 'GET', run: page },
-  '/v1/ledger': {
-    method: 'GET',
-    run: (_req, url, ctx) => json(queries.ledger(ctx.store, intParam(url, 'limit', 1, 500) ?? 50)),
+  '/v1/pages': { GET: listPages },
+  '/v1/page': { GET: page, DELETE: deletePage },
+  '/v1/all': { DELETE: deleteAll },
+  '/v1/stats': { GET: (_req, _url, ctx) => json(ctx.store.stats()) },
+  '/v1/forgotten': { GET: (_req, url, ctx) => json(ctx.store.forgottenSince(intParam(url, 'since', 0, Number.MAX_SAFE_INTEGER) ?? 0)) },
+  '/v1/connect': { GET: (_req, _url, ctx) => json(connectInfo(ctx.engine, ctx.home)) },
+  '/v1/calibration': {
+    GET: (_req, _url, ctx) => json(calibrate(ctx.store.ledger(CALIBRATION_WINDOW)) satisfies CalibrationResponse),
   },
+  '/v1/ledger': { GET: (_req, url, ctx) => json(queries.ledger(ctx.store, intParam(url, 'limit', 1, 500) ?? 50)) },
 };
 
 export function startHarness(opts: HarnessOptions = {}): Harness {
   const env = opts.env ?? process.env;
   const store = new Store({ home: opts.home ?? tacitHome(env) });
   const engine = chooseEngine(env);
+  const home = dirname(store.path);
   let server: ReturnType<typeof Bun.serve>;
   try {
     server = Bun.serve({
       hostname: '127.0.0.1',
       port: opts.port ?? (Number(env.TACIT_PORT) || HARNESS_PORT),
       maxRequestBodySize: MAX_BODY_BYTES,
-      fetch: (req, srv) => handle(req, { store, engine, port: srv.port ?? 0 }),
+      fetch: (req, srv) => handle(req, { store, engine, home, port: srv.port ?? 0 }),
     });
   } catch (err) {
     store.close();
@@ -98,6 +109,7 @@ async function handle(req: Request, ctx: Ctx): Promise<Response> {
   const origin = req.headers.get('origin');
   if (!hostAllowed(req.headers.get('host'), ctx.port)) return problem(403, 'forbidden host');
   if (!originAllowed(origin, ctx.port)) return problem(403, 'forbidden origin');
+  if (req.method === 'DELETE' && !deleteAllowed(origin, ctx.port)) return problem(403, 'only the dashboard may delete');
   const cors = corsHeaders(origin);
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
@@ -105,9 +117,12 @@ async function handle(req: Request, ctx: Ctx): Promise<Response> {
   try {
     const url = new URL(req.url);
     const route = ROUTES[url.pathname];
+    const run = route?.[req.method as Method];
     if (!route) res = problem(404, 'not found');
-    else if (req.method !== route.method) res = problem(405, `use ${route.method}`, { Allow: `${route.method}, OPTIONS` });
-    else res = await route.run(req, url, ctx);
+    else if (!run) {
+      const allowed = Object.keys(route).join(', ');
+      res = problem(405, `use ${allowed}`, { Allow: `${allowed}, OPTIONS` });
+    } else res = await run(req, url, ctx);
   } catch (err) {
     console.error('[tacit] request failed:', err);
     res = problem(500, 'internal error');
@@ -126,6 +141,7 @@ function health(ctx: Ctx): HealthResponse {
     model: ctx.engine.model,
     visits,
     pages,
+    forgetAt: ctx.store.forgetAt(),
   };
 }
 
@@ -159,11 +175,32 @@ async function decide(req: Request, _url: URL, ctx: Ctx): Promise<Response> {
   return json(res);
 }
 
+function listPages(_req: Request, url: URL, ctx: Ctx): Response {
+  const parsed = PagesQuerySchema.safeParse(Object.fromEntries(url.searchParams));
+  if (!parsed.success) return problem(400, firstIssue(parsed.error));
+  return json(library.pages(ctx.store, parsed.data));
+}
+
 function page(_req: Request, url: URL, ctx: Ctx): Response {
   const target = url.searchParams.get('url');
   if (!target) return problem(400, 'url is required');
-  const res = queries.page(ctx.store, target);
+  const res = library.pageDetail(ctx.store, target);
   return res ? json(res) : problem(404, 'Tacit has no page with that url');
+}
+
+function deletePage(_req: Request, url: URL, ctx: Ctx): Response {
+  const target = url.searchParams.get('url');
+  if (!target) return problem(400, 'url is required');
+  const deleted = ctx.store.deletePage(target);
+  if (deleted.pages + deleted.visits === 0) return problem(404, 'Tacit has no page with that url');
+  return json({ ok: true, deleted } satisfies DeleteResponse);
+}
+
+function deleteAll(req: Request, _url: URL, ctx: Ctx): Response {
+  if (req.headers.get(CONFIRM_HEADER) !== CONFIRM_DELETE_ALL) {
+    return problem(400, `send ${CONFIRM_HEADER}: ${CONFIRM_DELETE_ALL} to delete everything`);
+  }
+  return json({ ok: true, deleted: ctx.store.deleteAll() } satisfies DeleteResponse);
 }
 
 async function ui(): Promise<Response> {

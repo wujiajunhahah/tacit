@@ -63,6 +63,23 @@ describe('inferIntent', () => {
     expect(intent.terms.model).toBe(1);
   });
 
+  test('reading a passage weighs its words but does not rename the goal', () => {
+    const passage = 'Below roughly 400 milliseconds people stop waiting and start thinking with a system.';
+    const trail = [
+      visit({
+        url: 'https://example.com/context',
+        arrival: { kind: 'search', searchQuery: 'decision latency' },
+        startedAt: NOW - 6 * MIN,
+        selections: [{ text: 'Below roughly 400 milliseconds people stop waiting', at: NOW - 2 * MIN }],
+        reads: [{ blockId: 'b8', text: passage, ms: 12_000, via: 'pointer', at: NOW - MIN }],
+      }),
+    ];
+    const intent = inferIntent(trail, { now: NOW });
+    expect(intent.text).toBe('decision latency');
+    // A word only the passage has still counts for ranking.
+    expect(intent.terms.thinking).toBeGreaterThan(0);
+  });
+
   test('repeated signals merge instead of duplicating', () => {
     const trail = [
       visit({ url: 'https://google.com/search?q=jev', searchQuery: 'jev latency', startedAt: NOW - 2 * MIN }),

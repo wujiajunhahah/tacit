@@ -18,7 +18,7 @@ bun run store
 Build the upload, the same way `.github/workflows/release.yml` does:
 
 ```bash
-bun run build && cd extension && zip -r ../tacit-extension-v0.1.1.zip manifest.json popup.html dist icons
+bun run build && cd extension && zip -r ../tacit-extension-v0.2.0.zip manifest.json popup.html _locales dist icons
 ```
 
 ## What you do

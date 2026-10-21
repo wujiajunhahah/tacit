@@ -1,8 +1,9 @@
-import { extractFeed, isFeed } from './feed';
+import { extractFeed, isFeed, type FeedMemory } from './feed';
 import { extractGeneric, type Extracted } from './generic';
 
 export type { Extracted } from './generic';
+export { POST, newFeedMemory, type FeedMemory } from './feed';
 
-export function extractPage(doc: Document, loc: Location): Extracted {
-  return isFeed(doc, loc) ? extractFeed(doc, loc) : extractGeneric(doc, loc);
+export function extractPage(doc: Document, loc: Location, memory?: FeedMemory): Extracted {
+  return isFeed(doc, loc) ? extractFeed(doc, loc, memory) : extractGeneric(doc, loc);
 }

@@ -12,6 +12,7 @@ import {
   type SearchHit,
   type TrailItem,
 } from '../core';
+import { readPassages } from './library';
 import { duration, pct, plural } from './units';
 
 export const EMPTY_LEDGER =
@@ -74,6 +75,10 @@ export function formatPage({ page, visits }: PageResponse, maxChars: number, now
     head.push(`Visited ${plural(visits.length, 'time', 'times')}, last ${ago(now - last.startedAt)}${total}.`);
   }
   if (page.description) head.push('', `> ${clip(page.description, 400)}`);
+  const lingered = readPassages(visits, page.blocks);
+  if (lingered.length) {
+    head.push('', '## Read closely', ...lingered.map((r) => `- ${clip(r.text, 300)} · ${duration(r.ms)}`));
+  }
   const first = page.blocks[0];
   const blocks = first?.kind === 'heading' && first.text.trim() === page.title.trim() ? page.blocks.slice(1) : page.blocks;
   const top = Math.min(...blocks.map((b) => (b.kind === 'heading' ? (b.level ?? 2) : 6)));

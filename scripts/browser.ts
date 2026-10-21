@@ -7,6 +7,8 @@ import { chromium, type BrowserContext, type Page, type Worker } from 'playwrigh
 
 export const ROOT = new URL('..', import.meta.url).pathname;
 export const EXTENSION = join(ROOT, 'extension');
+/** Tests only talk to local servers; a system proxy that does not exempt loopback would swallow them. */
+export const LOCAL_ONLY = ['--proxy-server=direct://', '--proxy-bypass-list=*'];
 
 export interface TacitBrowser {
   context: BrowserContext;
@@ -16,11 +18,13 @@ export interface TacitBrowser {
 }
 
 export async function launch(
-  opts: { headless?: boolean; width?: number; height?: number; colorScheme?: 'light' | 'dark'; videoDir?: string } = {},
+  opts: { headless?: boolean; width?: number; height?: number; colorScheme?: 'light' | 'dark'; videoDir?: string; lang?: string } = {},
 ): Promise<TacitBrowser> {
   const profile = mkdtempSync(join(tmpdir(), 'tacit-profile-'));
   const width = opts.width ?? 1440;
   const height = opts.height ?? 900;
+  // Tacit follows the browser's language; pin it, so runs do not depend on the machine.
+  const lang = opts.lang ?? 'en-US';
   const context = await chromium.launchPersistentContext(profile, {
     channel: 'chromium',
     headless: opts.headless ?? true,
@@ -28,8 +32,9 @@ export async function launch(
     deviceScaleFactor: opts.videoDir ? 1 : 2,
     recordVideo: opts.videoDir ? { dir: opts.videoDir, size: { width, height } } : undefined,
     colorScheme: opts.colorScheme ?? 'light',
+    locale: lang,
     permissions: ['clipboard-read', 'clipboard-write'],
-    args: [`--disable-extensions-except=${EXTENSION}`, `--load-extension=${EXTENSION}`],
+    args: [...LOCAL_ONLY, `--lang=${lang}`, `--disable-extensions-except=${EXTENSION}`, `--load-extension=${EXTENSION}`],
   });
   const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
   const extensionId = new URL(worker.url()).host;
@@ -50,6 +55,14 @@ export async function capsuleText(page: Page, timeout = 8000): Promise<string> {
   await line.waitFor({ state: 'visible', timeout });
   await page.waitForTimeout(250);
   return (await line.innerText()).replace(/\s+/g, ' ').trim();
+}
+
+/** Searches on the demo site, then opens a result: the way people arrive at a page. */
+export async function searchThenOpen(page: Page, site: string, query: string, target: string): Promise<void> {
+  await page.goto(`${site}/search.html?q=${encodeURIComponent(query).replace(/%20/g, '+')}`);
+  await capsuleText(page);
+  await page.locator(`a[href*="${target}"]:not([href*="#"])`).first().click();
+  await page.waitForURL(new RegExp(target.replace('.', '\\.')));
 }
 
 export async function openSlip(page: Page): Promise<void> {

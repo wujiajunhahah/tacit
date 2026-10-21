@@ -1,7 +1,7 @@
-import type { Click, DecisionRequest, DecisionResponse, Intent, LedgerEntry, PageModel, Visit } from '../../core';
+import type { Calibration, Click, DecisionRequest, DecisionResponse, Intent, LedgerEntry, PageModel, Visit } from '../../core';
 import type { Settings } from './settings';
 
-export type VisitPatch = Partial<Pick<Visit, 'title' | 'dwellMs' | 'maxScroll' | 'selections' | 'copies' | 'clicks' | 'endedAt'>>;
+export type VisitPatch = Partial<Pick<Visit, 'title' | 'dwellMs' | 'maxScroll' | 'selections' | 'copies' | 'clicks' | 'reads' | 'endedAt'>>;
 
 export interface PendingClick extends Click {
   viaTacit?: boolean;
@@ -30,6 +30,8 @@ export interface VisitStartReply {
   trailTail: Visit[];
   visitedUrls: string[];
   harness: HarnessStatus;
+  /** What the user's past responses taught: thresholds, and sites where folding is off. */
+  calibration: Calibration;
 }
 
 export interface IntentReply {

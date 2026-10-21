@@ -1,5 +1,6 @@
 // Marks Tacit leaves on the page itself: highlights, focus dimming, folded posts.
 
+import { tn } from '../i18n';
 import type { View } from '../view';
 
 const STYLE_ID = 'tacit-page-style';
@@ -32,11 +33,11 @@ html[data-tacit-focus] [data-tacit-dim]:hover { opacity: 1 !important; }
 [data-tacit-relevant]::after {
   content: "";
   position: absolute;
-  left: 0;
+  left: 6px;
   top: 14px;
   width: 2px;
   height: 2.6em;
-  background: currentColor;
+  background: var(--tacit-ink, currentColor);
   opacity: .8;
   pointer-events: none;
 }
@@ -46,7 +47,7 @@ html[data-tacit-focus] [data-tacit-dim]:hover { opacity: 1 !important; }
 [data-tacit-folded]::before {
   content: attr(data-tacit-fold-label);
   display: block;
-  padding: 6px 16px;
+  padding: 6px 0;
   text-align: left;
   font: 11.5px/16px -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   color: rgba(120, 120, 128, .95);
@@ -68,7 +69,7 @@ export function clearMarks(doc: Document = document): void {
 }
 
 function foldLabel(count: number): string {
-  return `${count} ${count === 1 ? 'post' : 'posts'} folded · show`;
+  return tn('fold.one', 'fold.many', count);
 }
 
 export function applyMarks(view: View, elements: Map<string, Element>, doc: Document = document): void {
@@ -76,37 +77,15 @@ export function applyMarks(view: View, elements: Map<string, Element>, doc: Docu
   for (const id of view.highlights) elements.get(id)?.setAttribute('data-tacit-hl', '');
   for (const id of view.dims) elements.get(id)?.setAttribute('data-tacit-dim', '');
   for (const id of view.relevantPosts) elements.get(id)?.setAttribute('data-tacit-relevant', '');
+  // A virtual list may have recycled the start of a run; the label goes on the first post still on the page.
   view.foldRuns.forEach((run, r) => {
-    run.forEach((id, i) => {
-      const el = elements.get(id);
-      if (!el) return;
+    run.flatMap((id) => elements.get(id) ?? []).forEach((el, i) => {
       el.setAttribute('data-tacit-folded', '');
       el.setAttribute('data-tacit-run', String(r));
       if (i === 0) el.setAttribute('data-tacit-fold-label', foldLabel(run.length));
       else el.setAttribute('data-tacit-fold-tail', '');
     });
   });
-}
-
-/** Unfold one run of posts; returns the ids of the posts it showed. */
-export function unfoldRun(run: string, doc: Document = document): string[] {
-  const ids: string[] = [];
-  doc.querySelectorAll(`[data-tacit-run="${CSS.escape(run)}"]`).forEach((el) => {
-    const id = el.getAttribute('data-tacit-id');
-    if (id) ids.push(id);
-    ['data-tacit-folded', 'data-tacit-fold-label', 'data-tacit-fold-tail', 'data-tacit-run'].forEach((m) => el.removeAttribute(m));
-  });
-  return ids;
-}
-
-export function unfoldAll(doc: Document = document): string[] {
-  const runs = new Set<string>();
-  doc.querySelectorAll('[data-tacit-run]').forEach((el) => runs.add(el.getAttribute('data-tacit-run') ?? ''));
-  return [...runs].flatMap((r) => unfoldRun(r, doc));
-}
-
-export function foldedCount(doc: Document = document): number {
-  return doc.querySelectorAll('[data-tacit-folded]').length;
 }
 
 export function flash(el: Element): void {

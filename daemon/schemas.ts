@@ -18,12 +18,17 @@ import type {
   OutlineEntry,
   PageKind,
   PageModel,
+  PageSort,
   Question,
+  Read,
   Region,
   Visit,
 } from '../core';
 
 export const MAX_EVENTS = 500;
+/** The extension promises at most 30 reads of up to 300 characters; anything beyond is trimmed, not rejected. */
+const MAX_READS = 30;
+const MAX_READ_CHARS = 300;
 
 /** An enum that must list every member of T, no more and no less. */
 function oneOf<T extends string>(members: Record<T, true>) {
@@ -100,6 +105,14 @@ export const PageSchema = objectOf<PageModel>({
 
 const MomentSchema = objectOf<Moment>({ text, at: time });
 
+const ReadSchema = objectOf<Read>({
+  blockId: text,
+  text: text.transform((s) => s.slice(0, MAX_READ_CHARS)),
+  ms: z.number().nonnegative(),
+  via: oneOf<Read['via']>({ view: true, pointer: true }).catch('view'),
+  at: time,
+});
+
 export const VisitSchema = objectOf<Visit>({
   id: text.min(1),
   url: text.min(1),
@@ -122,11 +135,16 @@ export const VisitSchema = objectOf<Visit>({
   copies: z.array(MomentSchema),
   clicks: z.array(objectOf<Click>({ label: text, href: text.optional(), at: time })),
   statedIntent: MomentSchema.optional(),
+  reads: z
+    .array(ReadSchema)
+    .transform((reads) => reads.slice(0, MAX_READS))
+    .optional(),
 });
 
 export const LedgerEntrySchema = objectOf<LedgerEntry>({
   id: text.min(1),
   at: time,
+  createdAt: time.optional(),
   kind: ledgerKind,
   label: text,
   state: actionState,
@@ -168,6 +186,22 @@ export const DecideSchema: z.ZodType<DecideRequest> = z.looseObject({
   questions: z
     .record(z.string(), QuestionSchema)
     .refine((q) => Object.keys(q).length > 0, 'needs at least one question'),
+});
+
+export interface PagesQuery {
+  q: string;
+  site: string;
+  sort?: PageSort;
+  limit: number;
+  offset: number;
+}
+
+export const PagesQuerySchema: z.ZodType<PagesQuery> = z.object({
+  q: z.string().max(200).default(''),
+  site: z.string().max(253).default(''),
+  sort: oneOf<PageSort>({ recent: true, attention: true, relevance: true }).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(30),
+  offset: z.coerce.number().int().min(0).max(100_000).default(0),
 });
 
 /** The first validation problem as one readable line. */

@@ -21,6 +21,7 @@ import {
   type PageModel,
   type Question,
   type Ranked,
+  type Thresholds,
 } from '../../core';
 
 export type ViewMode = Mode | 'quiet';
@@ -51,6 +52,18 @@ export interface View {
 /** Below this the intent is a guess, and the surface asks instead of acting. */
 export const SURE = 0.35;
 
+export interface ViewOptions {
+  /** Calibrated thresholds; the defaults until the user's history says otherwise. */
+  thresholds?: Thresholds;
+  /** False when the user keeps unfolding on this site. */
+  folds?: boolean;
+}
+
+/** A conversation the user opened is chosen reading: mark what matters, never fold it. */
+function foldable(page: PageModel, opts: ViewOptions): boolean {
+  return opts.folds !== false && !/\/status\/\d+/.test(page.url);
+}
+
 function choicesFor(page: PageModel, intent: Intent): string[] {
   const out: string[] = [];
   // The page you are on is not an answer to "what are you here for".
@@ -66,7 +79,8 @@ function choicesFor(page: PageModel, intent: Intent): string[] {
   const levels = page.outline.map((o) => o.level);
   const sectionLevel = levels.length ? Math.min(...levels) + (levels.filter((l) => l === Math.min(...levels)).length === 1 ? 1 : 0) : 2;
   page.outline.filter((o) => o.level === sectionLevel).forEach((o) => add(o.text));
-  return out.slice(0, 4);
+  // Three, so each has a key (⌥1–3).
+  return out.slice(0, 3);
 }
 
 function base(page: PageModel, intent: Intent, ranked: Ranked<Block>[]): View {
@@ -100,14 +114,14 @@ function foldRunsOf(posts: Ranked<Block>[], fold: Set<string>): string[][] {
   return runs;
 }
 
-function feedView(page: PageModel, intent: Intent, ranked: Ranked<Block>[], unfolded: Set<string>): View {
+function feedView(page: PageModel, intent: Intent, ranked: Ranked<Block>[], unfolded: Set<string>, opts: ViewOptions): View {
   const v = base(page, intent, ranked);
-  const sure = intent.confidence >= SURE;
+  const sure = intent.confidence >= (opts.thresholds?.suggest ?? SURE);
   const posts = ranked.filter((r) => r.item.kind === 'item');
   const relevant = posts.filter((r) => r.score >= 1 && r.relevance >= 0.35).sort((a, b) => b.score - a.score);
   // Fold only when the feed clearly has something for this intent; never empty a feed on a guess.
   const fold = new Set(
-    sure && relevant.length >= 2 ? posts.filter((r) => r.score === 0 && !unfolded.has(r.item.id)).map((r) => r.item.id) : [],
+    sure && relevant.length >= 2 && foldable(page, opts) ? posts.filter((r) => r.score === 0 && !unfolded.has(r.item.id)).map((r) => r.item.id) : [],
   );
   const jumps = new Map(page.actions.filter((a) => a.kind === 'jump' && a.targetBlockId).map((a) => [a.targetBlockId!, a]));
   const top = relevant.slice(0, 3);
@@ -120,17 +134,17 @@ function feedView(page: PageModel, intent: Intent, ranked: Ranked<Block>[], unfo
   v.confidence = combinedConfidence(intent.confidence, probs[0] ?? 0);
   v.relevantPosts = relevant.map((r) => r.item.id);
   v.foldRuns = foldRunsOf(posts, fold);
-  v.mode = !sure ? 'ask' : v.confidence >= 0.6 && v.suggestions.length ? 'act' : 'suggest';
+  v.mode = !sure ? 'ask' : modeFor(v.confidence, opts.thresholds) === 'act' && v.suggestions.length ? 'act' : 'suggest';
   return v;
 }
 
-export function computeView(page: PageModel, intent: Intent, feed: boolean, unfolded: Set<string> = new Set()): View {
+export function computeView(page: PageModel, intent: Intent, feed: boolean, unfolded: Set<string> = new Set(), opts: ViewOptions = {}): View {
   const ranked = rankBlocks(page.blocks, intent);
   if (intent.source === 'none') return base(page, intent, ranked);
-  if (feed) return feedView(page, intent, ranked, unfolded);
+  if (feed) return feedView(page, intent, ranked, unfolded, opts);
 
   const v = base(page, intent, ranked);
-  const sure = intent.confidence >= SURE;
+  const sure = intent.confidence >= (opts.thresholds?.suggest ?? SURE);
   v.highlights = sure ? topBlocks(ranked, 3, 0.5).map((r) => r.item.id) : [];
   v.dims = sure && v.highlights.length ? ranked.filter((r) => r.item.kind !== 'heading' && r.relevance < 0.12).map((r) => r.item.id) : [];
   const ranking = rankActions([...jumpActions(ranked, 2), ...page.actions], intent, 12);
@@ -139,7 +153,7 @@ export function computeView(page: PageModel, intent: Intent, feed: boolean, unfo
   v.none = ranking.none;
   v.confidence = combinedConfidence(intent.confidence, ranking.confidence);
   if (!sure) v.mode = 'ask';
-  else if (v.suggestions.length) v.mode = modeFor(v.confidence) === 'act' ? 'act' : 'suggest';
+  else if (v.suggestions.length) v.mode = modeFor(v.confidence, opts.thresholds) === 'act' ? 'act' : 'suggest';
   else v.mode = v.highlights.length ? 'suggest' : 'quiet';
   return v;
 }
@@ -198,9 +212,11 @@ export function refineView(
   keys: DecisionKeys,
   unfolded: Set<string>,
   actions: Action[],
+  opts: ViewOptions & { page?: PageModel } = {},
 ): View {
   const v: View = { ...view, engine: res.engine, latencyMs: Math.round(res.latencyMs) };
-  const sure = intent.confidence >= SURE;
+  const sure = intent.confidence >= (opts.thresholds?.suggest ?? SURE);
+  const act = opts.thresholds?.act ?? 0.6;
   const next = res.answers.next;
   if (next?.type === 'choice') {
     const reasons = new Map(view.candidates.map((c) => [c.item.id, c.reasons]));
@@ -211,7 +227,7 @@ export function refineView(
       .map((s) => ({ action: s.action, p: s.p, reasons: reasons.get(s.action.id) ?? [`chosen by ${res.engine}`] }));
     v.none = next.probabilities.none ?? 0;
     v.confidence = combinedConfidence(intent.confidence, scored[0]?.p ?? 0);
-    v.mode = !sure ? 'ask' : next.choice === 'none' || v.confidence < 0.6 ? 'suggest' : 'act';
+    v.mode = !sure ? 'ask' : next.choice === 'none' || v.confidence < act ? 'suggest' : 'act';
   }
   if (keys.posts.size) {
     const yes = new Map<string, number>();
@@ -222,7 +238,9 @@ export function refineView(
     const posts = view.ranked.filter((r) => r.item.kind === 'item');
     const relevant = posts.filter((r) => (yes.get(r.item.id) ?? 0) >= 0.6).sort((a, b) => (yes.get(b.item.id) ?? 0) - (yes.get(a.item.id) ?? 0));
     const fold = new Set(
-      sure && relevant.length >= 2 ? posts.filter((r) => yes.has(r.item.id) && (yes.get(r.item.id) ?? 1) < 0.2 && !unfolded.has(r.item.id)).map((r) => r.item.id) : [],
+      sure && relevant.length >= 2 && (!opts.page || foldable(opts.page, opts))
+        ? posts.filter((r) => yes.has(r.item.id) && (yes.get(r.item.id) ?? 1) < 0.2 && !unfolded.has(r.item.id)).map((r) => r.item.id)
+        : [],
     );
     v.relevantPosts = relevant.map((r) => r.item.id);
     v.foldRuns = foldRunsOf(posts, fold);

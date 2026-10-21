@@ -42,6 +42,9 @@ button:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; borde
 kbd { display: none; font: 500 10.5px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink-3); }
 .tc[data-keys] kbd { display: inline; }
 .you { font: italic 400 15px/1.25 ui-serif, "New York", "Iowan Old Style", Georgia, serif; color: var(--ink); letter-spacing: 0; }
+/* Upright for CJK, which has no true italic; Latin words inside keep the serif of English intents. */
+.you[data-cjk] { font-style: normal; font-family: ui-serif, "New York", "Iowan Old Style", Georgia, "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", serif; }
+.tc:lang(zh-CN) { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif; }
 .code { font: 450 12px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink); }
 .muted { color: var(--ink-3); }
 u { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; text-decoration-color: var(--ink-3); }
@@ -73,15 +76,14 @@ u { text-decoration: underline; text-decoration-thickness: 1px; text-underline-o
 [data-mode="ask"] .line, [data-mode="quiet"] .line { width: 30px; padding: 0; justify-content: center; }
 [data-mode="ask"] .say, [data-mode="quiet"] .say { display: none; }
 
+/* Open, the slip and the line are one sheet of solid paper: nothing behind shows through. */
 .slip {
   position: absolute;
   left: 50%;
   bottom: calc(100% - 1px);
   width: var(--open-w);
-  padding: 14px 16px 10px;
-  background: var(--paper);
-  -webkit-backdrop-filter: blur(14px) saturate(1.3);
-  backdrop-filter: blur(14px) saturate(1.3);
+  padding: 12px 16px 10px;
+  background: var(--paper-solid);
   border: 1px solid var(--rule);
   border-bottom-color: transparent;
   border-radius: 6px 6px 0 0;
@@ -93,20 +95,19 @@ u { text-decoration: underline; text-decoration-thickness: 1px; text-underline-o
   transition: opacity .14s ease-out, transform .14s ease-out;
 }
 .tc[data-open] .slip { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
-.tc[data-open] .line { width: var(--open-w); max-width: none; border-radius: 0 0 6px 6px; border-top-color: transparent; box-shadow: 0 1px 2px rgba(0, 0, 0, .06); }
+.tc[data-open] .line { width: var(--open-w); max-width: none; background: var(--paper-solid); border-radius: 0 0 6px 6px; border-top-color: transparent; box-shadow: 0 1px 2px rgba(0, 0, 0, .06); }
 .tc[data-open] .say { display: flex; }
 .tc[data-open][data-mode="ask"] .line, .tc[data-open][data-mode="quiet"] .line { padding: 0 13px 0 12px; justify-content: flex-start; }
 
-.intent { margin: 0; }
-.prov { margin: 3px 0 0; font-size: 12px; color: var(--ink-3); }
-.sugs { list-style: none; margin: 12px 0 0; padding: 0; }
+.sugs { list-style: none; margin: 0; padding: 0; }
 .sug { display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 5px 0; color: var(--ink-soft); }
 .sug:hover .l { color: var(--ink); }
 .sug .v { flex: none; color: var(--ink-3); }
 .sug .l { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.choices { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin-top: 2px; }
-.choice { padding: 4px 0; color: var(--ink-soft); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.choice:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--ink-3); }
+.choices { display: flex; flex-direction: column; gap: 2px; }
+.choice { display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 5px 0; color: var(--ink-soft); }
+.choice .l { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.choice:hover .l { color: var(--ink); }
 .note { margin: 0; font-size: 12px; color: var(--ink-3); }
 pre { margin: 12px 0 0; max-height: 32vh; overflow: auto; white-space: pre-wrap; font: 11px/1.55 ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink-2); }
 .tools { display: flex; align-items: center; gap: 14px; margin-top: 12px; font-size: 12px; }
@@ -114,29 +115,11 @@ pre { margin: 12px 0 0; max-height: 32vh; overflow: auto; white-space: pre-wrap;
 .tools button:hover, .tools button[aria-pressed="true"] { color: var(--ink); }
 .tools .gap { flex: 1; }
 
-.toast {
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 8px);
-  transform: translate(-50%, 4px);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  max-width: min(520px, calc(100vw - 32px));
-  padding: 7px 8px 7px 12px;
-  white-space: nowrap;
-  background: var(--ink);
-  color: var(--paper-solid);
-  border-radius: 6px;
-  font-size: 12.5px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .14s ease-out, transform .14s ease-out;
-}
-.toast span { overflow: hidden; text-overflow: ellipsis; }
-.toast button { padding: 2px 6px; border-radius: 4px; color: var(--paper-solid); opacity: .75; text-decoration: underline; text-underline-offset: 3px; }
-.toast button:hover { opacity: 1; }
-.tc[data-toast] .toast { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
-.tc[data-toast][data-open] .toast { opacity: 0; pointer-events: none; }
-@media (prefers-reduced-motion: reduce) { .tc, .slip, .toast { transition: none; } }
+/* A confirmation takes the line's place for a few seconds, even where the line is only a dot. */
+.tc[data-note] .line { width: max-content; padding: 0 8px 0 12px; justify-content: flex-start; }
+.tc[data-note] .say { display: flex; }
+.act { flex: none; padding: 2px 4px; border-radius: 4px; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--ink-3); }
+.act:hover { color: var(--ink); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .tc, .slip { transition: none; } }
 `;

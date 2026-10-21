@@ -167,7 +167,7 @@ describe('harness API', () => {
     expect(nonce).toBeTruthy();
     const html = await res.text();
     expect(html).toContain(`<script nonce="${nonce}">`);
-    expect(html).toContain('Copy context for your agent');
+    expect(html).toContain('Copy for agent');
     expect(html).not.toMatch(/<(script|link)[^>]+(src|href)="https?:/);
   });
 });

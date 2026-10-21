@@ -1,269 +1,152 @@
-// Ledger UI client, bundled into GET / by ui/index.ts. Polls the harness JSON API and renders it.
+// The dashboard: a hash router over seven views, bundled into GET / by ui/index.ts.
 
-import {
-  STATE_LABEL,
-  ago,
-  clip,
-  describeEvidence,
-  type CurrentContextResponse,
-  type HealthResponse,
-  type LedgerEntry,
-  type Packet,
-  type SearchHit,
-  type TrailItem,
-  type Visit,
-} from '../../core';
-import { duration, pct, plural } from '../units';
+import type { HealthResponse } from '../../core';
+import { get } from './api';
+import { el } from './dom';
+import { getLocale, initLocale, setLocale, t, tn, type Key } from './i18n';
+import type { App, View } from './view';
+import * as connect from './views/connect';
+import * as learned from './views/learned';
+import * as library from './views/library';
+import * as now from './views/now';
+import * as page from './views/page';
+import * as privacy from './views/privacy';
+import * as trail from './views/trail';
 
 const REFRESH_MS = 5000;
-const THREAD_GAP_MS = 10 * 60_000;
+const VIEWS = { now, library, page, trail, learned, connect, privacy } satisfies Record<string, View>;
+type Name = keyof typeof VIEWS;
+const NAV: Name[] = ['now', 'library', 'trail', 'learned', 'connect', 'privacy'];
 
-type Child = Node | string | false | null | undefined;
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', ...children: Child[]): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  if (cls) node.className = cls;
-  for (const c of children) if (c) node.append(c);
-  return node;
-}
-
-function link(url: string, text: string, cls: string): HTMLElement {
-  if (!/^https?:\/\//i.test(url)) return el('span', cls, text);
-  const a = el('a', cls, text);
-  a.href = url;
-  a.target = '_blank';
-  a.rel = 'noreferrer noopener';
-  return a;
-}
-
-function byId(id: string): HTMLElement {
+function byId<T extends HTMLElement = HTMLElement>(id: string): T {
   const node = document.getElementById(id);
   if (!node) throw new Error(`#${id} is missing`);
-  return node;
+  return node as T;
 }
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(path, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`${path} → ${res.status}`);
-  return (await res.json()) as T;
+const view = byId('view');
+const app: App = { health: null, libraryHash: '#/library', refreshStatus };
+
+function parse(): { name: Name; params: URLSearchParams } {
+  const raw = location.hash.replace(/^#\/?/, '');
+  const cut = raw.indexOf('?');
+  const path = cut === -1 ? raw : raw.slice(0, cut);
+  const name = (path in VIEWS ? path : 'now') as Name;
+  return { name, params: new URLSearchParams(cut === -1 ? '' : raw.slice(cut + 1)) };
 }
 
-const clock = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-
-function day(ts: number): string {
-  const d = new Date(ts);
-  return d.toDateString() === new Date().toDateString() ? 'Today' : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
-
-let packet: Packet | null = null;
-
-async function copyPacket(note: HTMLElement): Promise<void> {
-  if (!packet) return;
-  try {
-    await navigator.clipboard.writeText(packet.markdown);
-    note.textContent = 'Copied. Paste it into your agent.';
-  } catch {
-    note.textContent = 'The browser blocked the clipboard.';
-  }
-  setTimeout(() => (note.textContent = ''), 2500);
-}
-
-function now(ctx: CurrentContextResponse, arrival: string): Node[] {
-  const { intent, visit } = ctx;
-  const out: Node[] = [];
-  if (intent.source === 'none' || !intent.text) {
-    out.push(el('p', 'intent is-quiet', 'No clear goal yet'));
-  } else {
-    const fill = el('i');
-    fill.style.width = pct(intent.confidence);
-    out.push(
-      el('p', 'intent', intent.text),
-      el('p', 'confidence', el('span', 'meter', fill), el('span', 'mono', `${intent.source} · ${pct(intent.confidence)}`)),
-    );
-    const t = Date.now();
-    const evidence = intent.evidence.slice(0, 4).map((ev) => {
-      const sentence = describeEvidence(ev, t);
-      const cut = sentence.lastIndexOf(' · ');
-      return el('li', '', sentence.slice(0, cut), el('span', 'when mono', sentence.slice(cut + 3)));
-    });
-    if (evidence.length) out.push(el('ul', 'evidence', ...evidence));
-    const others = intent.candidates.slice(1, 3).filter((c) => c.p >= 0.05);
-    if (others.length) out.push(el('p', 'others', `Or perhaps: ${others.map((c) => `${clip(c.text, 48)} (${pct(c.p)})`).join(' · ')}`));
-  }
-  if (visit) {
-    out.push(
-      el(
-        'div',
-        'reading',
-        el('div', 'kicker', 'Reading'),
-        link(visit.url, visit.title || visit.url, 'reading-title'),
-        el('p', 'reading-meta', [visit.domain, arrival].filter(Boolean).join(' · ')),
-      ),
-    );
-  }
-  if (ctx.packet) {
-    const note = el('span', 'note');
-    note.setAttribute('aria-live', 'polite');
-    const button = el('button', '', 'Copy context for your agent');
-    button.type = 'button';
-    button.addEventListener('click', () => void copyPacket(note));
-    const cost = `~${ctx.packet.tokens} tokens · ${pct(ctx.packet.saved)} saved vs. the whole page`;
-    out.push(el('div', 'handoff', button, el('span', 'cost mono', cost), note));
-  }
-  return out;
-}
-
-/** Newest-first visits split wherever nothing happened for ten minutes. */
-function threads(items: TrailItem[]): TrailItem[][] {
-  const groups: TrailItem[][] = [];
-  let newer: Visit | undefined;
-  for (const item of items) {
-    const v = item.visit;
-    const lastActive = v.endedAt ?? v.startedAt + v.dwellMs;
-    if (!newer || newer.startedAt - lastActive > THREAD_GAP_MS) groups.push([]);
-    groups[groups.length - 1]?.push(item);
-    newer = v;
-  }
-  return groups;
-}
-
-function visitRow(item: TrailItem, current: boolean): HTMLElement {
-  const v = item.visit;
-  const meta = [
-    v.dwellMs >= 1000 ? `read ${duration(v.dwellMs)}` : '',
-    v.maxScroll >= 0.05 ? `scrolled ${pct(v.maxScroll)}` : '',
-    v.copies.length ? plural(v.copies.length, 'copy', 'copies') : '',
-  ].filter(Boolean);
-  return el(
-    'li',
-    current ? 'visit is-current' : 'visit',
-    el('time', 'mono', current ? 'now' : clock(v.startedAt)),
-    el(
-      'div',
-      '',
-      el('div', 'v-head', link(v.url, v.title || v.url, 'v-title'), el('span', 'v-domain', v.domain)),
-      item.arrival && el('p', 'v-arrival', item.arrival),
-      meta.length > 0 && el('p', 'v-meta mono', meta.join(' · ')),
-      ...v.selections.slice(-2).map((s) => el('blockquote', '', clip(s.text, 240))),
-    ),
+function drawChrome(): void {
+  document.documentElement.lang = getLocale();
+  byId('skip').textContent = t('skip');
+  byId('brand-sub').textContent = t('brand.sub');
+  const nav = byId('nav');
+  nav.setAttribute('aria-label', t('nav.label'));
+  byId('nav-links').replaceChildren(
+    ...NAV.map((name) => {
+      const a = el('a', '', t(`nav.${name}` as Key));
+      a.href = `#/${name}`;
+      a.dataset.view = name;
+      return el('li', '', a);
+    }),
   );
+  const lang = byId<HTMLButtonElement>('lang');
+  lang.textContent = t('lang.switch');
+  lang.setAttribute('aria-label', t('lang.label'));
+  drawStatus();
+  markNav();
 }
 
-function thread(items: TrailItem[], currentId: string | undefined): HTMLElement {
-  const oldest = items[items.length - 1]!.visit;
-  const newest = items[0]!.visit;
-  const span = oldest === newest ? clock(oldest.startedAt) : `${clock(oldest.startedAt)}–${clock(newest.startedAt)}`;
-  return el(
-    'div',
-    'thread',
-    el('div', 'thread-head mono', el('span', '', `${day(oldest.startedAt)} · ${span}`), el('span', '', plural(items.length, 'page', 'pages'))),
-    el('ol', 'visits', ...items.map((t) => visitRow(t, t.visit.id === currentId))),
-  );
+function markNav(): void {
+  const current = parse().name;
+  const active = current === 'page' ? 'library' : current;
+  for (const a of byId('nav-links').querySelectorAll('a')) {
+    if (a.dataset.view === active) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  }
 }
 
-function entry(e: LedgerEntry): HTMLElement {
-  const detail = el('div', 'e-reason', e.reason);
-  if (e.confidence !== undefined) detail.append(' · ', el('span', 'mono', pct(e.confidence)));
-  if (e.engine) detail.append(` · ${e.engine}`);
-  return el(
-    'li',
-    `state-${e.state}`,
-    el('div', 'e-head', el('span', 'e-state', STATE_LABEL[e.state]), el('time', 'mono', clock(e.at))),
-    el('div', 'e-label', e.label),
-    detail,
-  );
-}
-
-function hit(h: SearchHit): HTMLElement {
-  return el(
-    'li',
-    '',
-    link(h.url, h.title || h.url, 'r-title'),
-    el('div', 'r-meta mono', `${h.domain} · ${ago(Date.now() - h.lastSeen)}`),
-    h.snippet && el('p', 'r-snip', h.snippet),
-  );
-}
-
-let lastKey = '';
-
-function render(health: HealthResponse, ctx: CurrentContextResponse, trail: TrailItem[], ledger: LedgerEntry[]): void {
+function drawStatus(): void {
   const status = byId('status');
-  status.classList.remove('is-off');
-  const engine = health.engine === 'jev' ? `Jev ${health.model ?? ''}`.trim() : 'local engine';
-  status.textContent = [engine, plural(health.visits, 'visit', 'visits'), plural(health.pages, 'page', 'pages')].join(' · ');
-  byId('colophon').textContent =
-    health.engine === 'jev'
-      ? 'Your ledger stays on this machine. Only decision questions go to TypeSafe’s Jev, because a TypeSafe key is set.'
-      : 'Your ledger stays on this machine. Nothing is sent anywhere.';
-
-  const empty = health.visits === 0;
-  byId('empty').hidden = !empty;
-  byId('grid').hidden = empty;
-  if (empty) return;
-
-  packet = ctx.packet;
-  const currentId = ctx.visit?.id;
-  const arrival = trail.find((t) => t.visit.id === currentId)?.arrival ?? '';
-  byId('now').replaceChildren(...now(ctx, arrival));
-  byId('trail').replaceChildren(...threads(trail).map((t) => thread(t, currentId)));
-  byId('ledger').replaceChildren(
-    ...(ledger.length ? ledger.map(entry) : [el('li', 'quiet', 'Nothing yet. What Tacit suggests or does for you is recorded here.')]),
-  );
+  const h = app.health;
+  status.classList.toggle('is-off', !h);
+  status.textContent = h
+    ? [h.engine === 'jev' ? t('status.jev', { model: h.model ?? '' }).trim() : t('status.local'), tn('status.pages', h.pages)].join(' · ')
+    : t('status.offline');
+  byId('colophon').textContent = h?.engine === 'jev' ? t('colophon.jev') : t('colophon.local');
 }
 
-async function refresh(): Promise<void> {
+async function refreshStatus(): Promise<void> {
   try {
-    const [health, ctx, trail, ledger] = await Promise.all([
-      get<HealthResponse>('/v1/health'),
-      get<CurrentContextResponse>('/v1/context/current'),
-      get<TrailItem[]>('/v1/trail?limit=60'),
-      get<LedgerEntry[]>('/v1/ledger?limit=40'),
-    ]);
-    // Re-render only when something changed, or every half minute so relative times stay true.
-    const key = JSON.stringify([health, ctx.visit, ctx.intent.text, ctx.packet?.tokens, trail, ledger, Math.floor(Date.now() / 30_000)]);
-    if (key === lastKey) return;
-    lastKey = key;
-    render(health, ctx, trail, ledger);
+    app.health = await get<HealthResponse>('/v1/health');
   } catch {
-    lastKey = '';
-    const status = byId('status');
-    status.textContent = 'harness unreachable · start it with “bun run harness”';
-    status.classList.add('is-off');
+    app.health = null;
   }
+  drawStatus();
 }
 
-let searchSeq = 0;
+let seq = 0;
+let lastKey = '';
+let focusSearch = false;
 
-async function search(query: string): Promise<void> {
-  const seq = ++searchSeq;
-  const count = byId('count');
-  const results = byId('results');
-  if (!query.trim()) {
-    count.textContent = '';
-    results.replaceChildren();
+async function show(opts: { focus: boolean; polling?: boolean }): Promise<void> {
+  const { name, params } = parse();
+  const mine = ++seq;
+  markNav();
+  try {
+    const out = await VIEWS[name].render(params, app);
+    if (mine !== seq) return;
+    if (opts.polling && out.key !== undefined && out.key === lastKey) return;
+    lastKey = out.key ?? '';
+    view.replaceChildren(out.node);
+  } catch {
+    if (mine === seq) view.replaceChildren(el('p', 'error', t('common.error')));
     return;
   }
-  try {
-    const hits = await get<SearchHit[]>(`/v1/search?q=${encodeURIComponent(query)}&limit=12`);
-    if (seq !== searchSeq) return;
-    count.textContent = hits.length ? plural(hits.length, 'page', 'pages') : 'Nothing you have read matches that.';
-    results.replaceChildren(...hits.map(hit));
-  } catch {
-    if (seq === searchSeq) count.textContent = 'Search failed. Is the harness running?';
+  if (focusSearch && name === 'library') {
+    focusSearch = false;
+    document.getElementById('q')?.focus();
+  } else if (opts.focus) {
+    window.scrollTo(0, 0);
+    (view.querySelector<HTMLElement>('h1') ?? view).focus({ preventScroll: true });
   }
 }
 
-const input = byId('q') as HTMLInputElement;
-let pending: ReturnType<typeof setTimeout> | undefined;
-input.addEventListener('input', () => {
-  clearTimeout(pending);
-  pending = setTimeout(() => void search(input.value), 200);
+/** Polls must not pull the page out from under someone using the keyboard inside it. */
+function busyInView(): boolean {
+  const active = document.activeElement;
+  return !!active && active !== view && view.contains(active) && active.tagName !== 'H1';
+}
+
+window.addEventListener('hashchange', () => void show({ focus: true }));
+
+byId('lang').addEventListener('click', () => {
+  setLocale(getLocale() === 'en' ? 'zh-CN' : 'en');
+  drawChrome();
+  void show({ focus: false });
 });
 
-void refresh();
-setInterval(() => {
-  if (!document.hidden) void refresh();
-}, REFRESH_MS);
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) void refresh();
+document.addEventListener('keydown', (e) => {
+  if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+  if ((e.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable]')) return;
+  e.preventDefault();
+  if (parse().name === 'library') document.getElementById('q')?.focus();
+  else {
+    focusSearch = true;
+    location.hash = '#/library';
+  }
 });
+
+setInterval(() => {
+  if (document.hidden) return;
+  void refreshStatus();
+  const current: View = VIEWS[parse().name];
+  if (current.poll && !busyInView()) void show({ focus: false, polling: true });
+}, REFRESH_MS);
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) void refreshStatus();
+});
+
+initLocale();
+drawChrome();
+void refreshStatus().then(() => show({ focus: false }));
