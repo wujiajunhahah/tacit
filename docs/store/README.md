@@ -25,17 +25,15 @@ bun run build && cd extension && zip -r ../tacit-extension-v0.2.0.zip manifest.j
 
 1. Commit and push, so `https://github.com/wujiajunhahah/tacit/blob/main/PRIVACY.md` resolves.
 2. Register at the [developer dashboard](https://chrome.google.com/webstore/devconsole) and pay the one-time $5 fee. Finish whatever the Account tab asks for.
-3. **New item**, then upload `tacit-extension-v0.1.1.zip` (the same file is attached to the [v0.1.1 release](https://github.com/wujiajunhahah/tacit/releases/tag/v0.1.1)).
-4. **Store listing:** paste from `listing.md`, upload the images in the order it gives.
+3. **New item**, then upload `tacit-extension-v0.2.0.zip` (the same file is attached to the [v0.2.0 release](https://github.com/wujiajunhahah/tacit/releases/tag/v0.2.0)).
+4. **Store listing:** paste from `listing.md`, upload the images in the order it gives. Add the 简体中文 listing too: the package ships `_locales/zh_CN`.
 5. **Privacy practices:** paste from `permissions.md`, tick the three data types and the three certifications, add the privacy policy URL.
 6. **Distribution:** public, all regions, unless you want an unlisted beta first.
 7. **Submit for review.** Access to all sites usually means an in-depth review, so expect days rather than hours.
 8. Once it is live: put the store link in the README quick start, and tick "Chrome Web Store release" in Status.
 
-## Worth deciding before you submit
+## Done in 0.2.0
 
-- **Drop `tabs`.** With `<all_urls>` granted, the popup and the service worker still read tab addresses without it (checked in Chromium). It only matters when someone withholds site access, and there Tacit cannot read the page anyway. One less permission for the reviewer to question.
-- **Narrow `<all_urls>`** to `http://*/*` and `https://*/*`. The content script only runs on those, and the harness at `http://127.0.0.1:7766` is covered; `<all_urls>` also grants `file://` pages, which Tacit never uses. Checked in Chromium together with dropping `tabs`: the line still mounts, tab addresses are readable, and visits reach the harness.
-- **The 简体中文 listing** needs `_locales/zh_CN` (and `default_locale`) in the package; the dashboard only offers languages the package ships.
-
-If you drop a permission, delete its block in `permissions.md`.
+- **No `tabs` permission.** The popup reads the active tab's address through host access; tab events, messaging a tab and opening one need no permission. Checked in Chromium.
+- **Host access narrowed** from `<all_urls>` to `http://*/*` and `https://*/*`: Tacit never reads `file://` pages, and the harness at `http://127.0.0.1:7766` is covered.
+- **A 简体中文 listing is possible:** the package ships `_locales/en` and `_locales/zh_CN`.

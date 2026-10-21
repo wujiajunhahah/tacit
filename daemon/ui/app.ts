@@ -1,6 +1,7 @@
 // The dashboard: a hash router over seven views, bundled into GET / by ui/index.ts.
 
-import { GUIDE_URL, type HealthResponse } from '../../core';
+import type { HealthResponse } from '../../core';
+import { GUIDE_URL } from '../../core/links';
 import { get } from './api';
 import { attrs, el } from './dom';
 import { getLocale, initLocale, setLocale, t, tn, type Key } from './i18n';

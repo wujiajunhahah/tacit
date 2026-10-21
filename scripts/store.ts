@@ -9,7 +9,7 @@ import { chromium, type Browser, type Page } from 'playwright';
 import { HARNESS_ORIGIN, HARNESS_PORT, type CurrentContextResponse } from '../core';
 import { startHarness } from '../daemon/server';
 import { startDemo } from '../demo/serve';
-import { capsuleText, launch, LOCAL_ONLY, openSlip, ROOT } from './browser';
+import { capsuleText, launch, LOCAL_ONLY, openSlip, ROOT, searchThenOpen as openFrom } from './browser';
 
 const OUT = join(ROOT, 'docs/store');
 /** The browser window inside each screenshot. Pages are captured at 2x. */
@@ -88,7 +88,7 @@ async function render(browser: Browser, html: string, file: string, size: { widt
   console.log(`docs/store/${file}`);
 }
 
-/** Reads the capsule's state attributes, e.g. whether the slip is open or a toast is up. */
+/** Reads the capsule's state attributes, e.g. whether the slip is open or the line is confirming something. */
 function capsuleHas(page: Page, attr: string): Promise<boolean> {
   return page.evaluate((a) => !!document.querySelector('tacit-capsule')?.shadowRoot?.querySelector(`.tc[${a}]`), attr);
 }
@@ -108,10 +108,7 @@ async function currentUrl(): Promise<string> {
 }
 
 async function searchThenOpen(page: Page, query: string, target: string): Promise<void> {
-  await page.goto(`${site}/search.html?q=${encodeURIComponent(query).replace(/%20/g, '+')}`);
-  await capsuleText(page);
-  await page.locator(`a[href*="${target}"]:not([href*="#"])`).first().click();
-  await page.waitForURL(new RegExp(target.replace('.', '\\.')));
+  await openFrom(page, site, query, target);
   await capsuleText(page);
 }
 
@@ -133,14 +130,14 @@ try {
   await page.waitForTimeout(400);
   await page.keyboard.press('Alt+Shift+KeyC');
   await page.waitForTimeout(700);
-  if ((await capsuleHas(page, 'data-open')) || !(await capsuleHas(page, 'data-toast'))) throw new Error('handoff: expected the toast, not the slip');
+  if ((await capsuleHas(page, 'data-open')) || !(await capsuleHas(page, 'data-note'))) throw new Error('handoff: expected the line to confirm, not the slip');
   const packet = await page.evaluate(() => navigator.clipboard.readText());
   const [, tokens, full] = packet.match(/~(\d+) tokens instead of ~(\d+)/) ?? [];
   if (!tokens || !full) throw new Error('handoff: no token counts in the packet');
   const lines = packet.split('\n').slice(0, 13);
   shots.push({
     file: 'screenshot-2-handoff.png',
-    title: 'Hand the page to your agent.',
+    title: 'Copy the page for your agent.',
     note: `⌥⇧C copies what matters: ${Number(tokens).toLocaleString('en-US')} tokens instead of the page’s ${Number(full).toLocaleString('en-US')}.`,
     capture: await page.screenshot(),
     inset: `<div class="inset packet"><div class="head">On your clipboard</div>${lines.map((l) => `<div>${esc(l) || ' '}</div>`).join('')}</div>`,

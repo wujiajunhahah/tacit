@@ -1,4 +1,5 @@
-import { GUIDE_URL, HARNESS_ORIGIN, clampPointerDwell } from '../../core';
+import { HARNESS_ORIGIN, clampPointerDwell } from '../../core';
+import { GUIDE_URL } from '../../core/links';
 import { detectLocale, getLocale, setLocale, t, type Key, type LocalePref } from './i18n';
 import { send, type StatusReply } from './messages';
 import { patternMatches, saveSettings, type Settings } from './settings';

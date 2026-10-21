@@ -1,5 +1,5 @@
 # Context: Notes on a context harness · Margins
-http://127.0.0.1:60286/article.html
+http://127.0.0.1:52089/article.html
 
 **What I'm trying to do** (inferred · 95%): decision latency
 - searched “decision latency” · just now

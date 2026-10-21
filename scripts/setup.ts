@@ -4,7 +4,7 @@
 // Usage: bun run setup [--yes] [--dry-run]
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { HARNESS_ORIGIN, type StatsResponse } from '../core';
 import { MCP_PATH, claudeAddArgs, connectInfo } from '../daemon/connect';
@@ -56,8 +56,9 @@ else left.push(`The running harness keeps its ledger in ${ledger}, not ${home}. 
 // 3. Agents. Claude Code is connected here; any other client gets its config printed.
 const claude = Bun.which('claude');
 if (claude) {
-  // `claude mcp get` exit codes are not documented, so an entry counts only if it points at this checkout.
-  const got = Bun.spawnSync([claude, 'mcp', 'get', 'tacit'], { stdout: 'pipe', stderr: 'pipe' });
+  // `claude mcp get` exit codes are not documented, so an entry counts only if it points at this checkout. Asked from
+  // outside any project, only user scope answers: an old local entry in this folder must not pass for one.
+  const got = Bun.spawnSync([claude, 'mcp', 'get', 'tacit'], { cwd: tmpdir(), stdout: 'pipe', stderr: 'pipe' });
   const elsewhere = got.exitCode === 0 && !got.stdout.toString().includes(MCP_PATH);
   if (got.exitCode === 0 && !elsewhere) done.push('Claude Code already has Tacit');
   else if (agree(elsewhere ? 'Claude Code has a Tacit entry that points elsewhere. Point it at this folder?' : 'Add Tacit to Claude Code, for every project?')) {

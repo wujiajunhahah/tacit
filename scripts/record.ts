@@ -1,4 +1,4 @@
-// Records the demo flow as a video for sharing: docs/tacit-demo.mp4.
+// Records the demo flow for sharing: docs/tacit-demo.mp4, and the README's docs/assets/demo.gif from the same take.
 
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -59,7 +59,7 @@ try {
   await capsuleText(page);
   await caption(page, 'Tacit already knows why you are here, and says so', 3000);
   await page.locator('tacit-capsule .line').hover();
-  await caption(page, 'Intent, evidence, confidence. Nothing typed.', 3000);
+  await caption(page, 'Your intent, where it came from, the next steps. Nothing typed.', 3000);
   await page.mouse.move(60, 60);
   await page.waitForTimeout(400);
 
@@ -71,10 +71,10 @@ try {
   await page.waitForTimeout(2600);
   await page.keyboard.press('Alt+Shift+KeyF');
 
-  await caption(page, '⌥⇧C  hand the page to your agent', 600);
+  await caption(page, '⌥⇧C  copy the page for your agent', 600);
   await page.keyboard.press('Alt+Shift+KeyC');
   await page.waitForTimeout(1800);
-  await page.locator('tacit-capsule [data-act="toast"]').dispatchEvent('click');
+  await page.locator('tacit-capsule [data-act="note"]').dispatchEvent('click');
   await caption(page, 'A few hundred tokens instead of the whole page', 3200);
   await page.mouse.move(60, 60);
 
@@ -116,3 +116,9 @@ const out = join(ROOT, 'docs/tacit-demo.mp4');
 await Bun.$`ffmpeg -y -loglevel error -i ${join(videoDir, webm)} -c:v libx264 -pix_fmt yuv420p -crf 20 -movflags +faststart ${out}`;
 rmSync(videoDir, { recursive: true, force: true });
 console.log(`video: ${out}`);
+
+// The README's GIF, from the same take: 960 wide, 10 fps, one palette for the whole clip.
+const gif = join(ROOT, 'docs/assets/demo.gif');
+const palette = 'fps=10,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle';
+await Bun.$`ffmpeg -y -loglevel error -i ${out} -vf ${palette} ${gif}`;
+console.log(`gif: ${gif}`);

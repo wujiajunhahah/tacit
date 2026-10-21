@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.2.0 · Unreleased
+## 0.2.0 · 2026-10-21
 
-What you read becomes context, X works for real, and Tacit learns from what you undo.
+What you read becomes context, X works for real, and Tacit learns from what you undo. And a guide, plus setup by pasting one line to your agent.
 
 - **Reading attention.** A passage that holds the middle of the screen for 4 s of reading becomes context: it weighs the words you are after and leads the packet under "Passages I read closely". Turn on "Read with the pointer" in the popup and the passage your pointer rests on counts too, after a threshold you set (0.6–4 s). Skimming, idle time and hidden tabs never count.
 - **X, for real.** Timelines that recycle posts keep every post you scroll past. Re-rendered posts get their folds back before they paint, and new posts are folded before they reach the screen. Opening a post is a new visit that remembers which post you came from. Conversations are never folded, and X messages and chats are never read.
@@ -18,6 +18,7 @@ What you read becomes context, X works for real, and Tacit learns from what you 
 - **Who decides.** DESIGN.md maps every decision in the loop to one owner (code, pre-written, a small typed model, or your own agent) with its time budget and its fallback.
 - **[DESIGN.md](DESIGN.md):** the north star (less input), the principles, the loop, every signal and its weight, and when Tacit borrows from other tools.
 - **Fewer permissions.** No `tabs` permission, and host access narrowed from `<all_urls>` to `http` and `https`.
+- **The store kit, for 0.2.0.** `docs/store` justifies only the permissions the extension now asks for, describes the new data (passages read closely, X messages left out, deletion), and has a 简体中文 listing ready, since the package ships `_locales/zh_CN`. Images, the demo video and the README GIF re-rendered from the new build; `bun run record` now makes the GIF too.
 - **Jumps land like anchor links:** the target near the top, the answer below it in the reading band, instead of centered under the previous section.
 - **Fixes.** Clicking a fold no longer counts as interest in the posts it hides. Unfolding opens the whole run, even where the page recycled part of it. The popup hides the site switch on browser pages. The Learned view no longer says Tacit acts on its own: it offers, one key away. Reading a passage weighs its words but no longer renames your goal after a sentence you copied from it. A 40% undo rate moves the bar one step, not two (float rounding). The setup command adds Tacit to Claude Code for every project (`--scope user`), not only the tacit folder.
 - **Tests.** 140 unit tests. The extension's end-to-end run grows to 41 checks (reading, pointer reading, Chinese, every dashboard view, a deletion reaching the extension), and `bun run e2e:web` checks the page runtime against an X-style virtual timeline (20 checks). Browser tests ignore any system proxy, so they run where one is set.
