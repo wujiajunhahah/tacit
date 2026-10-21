@@ -1,8 +1,8 @@
 // The dashboard: a hash router over seven views, bundled into GET / by ui/index.ts.
 
-import type { HealthResponse } from '../../core';
+import { GUIDE_URL, type HealthResponse } from '../../core';
 import { get } from './api';
-import { el } from './dom';
+import { attrs, el } from './dom';
 import { getLocale, initLocale, setLocale, t, tn, type Key } from './i18n';
 import type { App, View } from './view';
 import * as connect from './views/connect';
@@ -72,7 +72,8 @@ function drawStatus(): void {
   status.textContent = h
     ? [h.engine === 'jev' ? t('status.jev', { model: h.model ?? '' }).trim() : t('status.local'), tn('status.pages', h.pages)].join(' · ')
     : t('status.offline');
-  byId('colophon').textContent = h?.engine === 'jev' ? t('colophon.jev') : t('colophon.local');
+  const guide = attrs(el('a', '', t('colophon.guide')), { href: GUIDE_URL[getLocale()], target: '_blank', rel: 'noreferrer' });
+  byId('colophon').replaceChildren(h?.engine === 'jev' ? t('colophon.jev') : t('colophon.local'), ' · ', guide);
 }
 
 async function refreshStatus(): Promise<void> {

@@ -27,6 +27,7 @@
   "scripts": {
     "build": "bun run scripts/build.ts",
     "test": "bun test test/core test/extension test/daemon",
+    "setup": "bun run scripts/setup.ts",
     "harness": "bun run daemon/server.ts",
     "mcp": "bun run daemon/mcp.ts",
     "demo": "bun run demo/serve.ts",

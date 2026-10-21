@@ -9,6 +9,11 @@ import type { Intent, PageKind, PageModel, Read, Visit } from './types';
 export const HARNESS_PORT = 7766;
 export const HARNESS_ORIGIN = `http://127.0.0.1:${HARNESS_PORT}`;
 export const HARNESS_VERSION = '0.1.1';
+/** The guide, in each language the interface speaks. */
+export const GUIDE_URL = {
+  en: 'https://github.com/wujiajunhahah/tacit/blob/main/GUIDE.md',
+  'zh-CN': 'https://github.com/wujiajunhahah/tacit/blob/main/GUIDE.zh-CN.md',
+} as const;
 
 /**
  * - page: a visit started, or the page model changed (SPA navigation, feed grew).

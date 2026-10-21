@@ -70,6 +70,7 @@ const en = {
   'popup.saved': 'Saved',
   'popup.dashboard': 'Open dashboard',
   'popup.connect': 'Connect an agent',
+  'popup.guide': 'How to use Tacit',
 } as const;
 
 export type Key = keyof typeof en;
@@ -141,6 +142,7 @@ const zh: Record<Key, string> = {
   'popup.saved': '已保存',
   'popup.dashboard': '打开面板',
   'popup.connect': '连接 agent',
+  'popup.guide': 'Tacit 怎么用',
 };
 
 const TABLES: Record<Locale, Record<Key, string>> = { en, 'zh-CN': zh };

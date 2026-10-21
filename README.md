@@ -18,7 +18,7 @@ and hands it to Claude Code, Cursor or any MCP agent. No more Cmd+A, copy, paste
 [![Local first](https://img.shields.io/badge/your_data-stays_local-9ecd2e?style=flat-square&labelColor=17161c)](#privacy-and-security)
 [![Bun](https://img.shields.io/badge/Bun-1.4-17161c?style=flat-square)](https://bun.sh)
 
-**English** · [简体中文](README.zh-CN.md) · [Manifesto](MANIFESTO.md) · [Design](DESIGN.md) · [Quick start](#quick-start) · [For agents](#for-agents-mcp)
+**English** · [简体中文](README.zh-CN.md) · [How to use](GUIDE.md) · [Manifesto](MANIFESTO.md) · [Design](DESIGN.md) · [Quick start](#quick-start) · [For agents](#for-agents-mcp)
 
 <br>
 
@@ -61,7 +61,13 @@ Tacit is the missing context layer. It reads the page and the path that led you 
 
 ## Quick start
 
-You need [Bun](https://bun.sh) 1.4+ and Chrome or any Chromium browser.
+**The fastest way:** paste this into Claude Code, Cursor, Codex or any coding agent, and it sets Tacit up for you, asking only for the one step that needs your hands.
+
+```text
+Set up Tacit on this computer. Read https://raw.githubusercontent.com/wujiajunhahah/tacit/main/docs/agent-setup.md and follow it step by step. Ask me only where it says so.
+```
+
+[GUIDE.md](GUIDE.md) shows what to try once it runs, and how to try it with nothing installed. By hand, you need [Bun](https://bun.sh) 1.4+ and Chrome or any Chromium browser.
 
 ```bash
 git clone https://github.com/wujiajunhahah/tacit.git
@@ -78,7 +84,7 @@ bun run build
 bun run harness
 ```
 
-**3. Connect your agent.** From the repo folder:
+**3. Connect your agent.** `bun run setup` does this for Claude Code, and installs a skill that tells it when to use Tacit. Or by hand, from the repo folder:
 
 ```bash
 claude mcp add --scope user tacit -- bun "$PWD/daemon/mcp.ts"
@@ -210,7 +216,7 @@ The [privacy policy](PRIVACY.md) lists everything Tacit reads, where it goes, ex
 
 ## Status
 
-A working prototype, checked in a real browser on every push: 135 unit tests; a 41-check end-to-end run (real Chromium, the built extension, the demo site, the harness, the dashboard and an MCP client); and 20 checks of the page runtime, including an X-style virtual timeline.
+A working prototype, checked in a real browser on every push: 140 unit tests; a 41-check end-to-end run (real Chromium, the built extension, the demo site, the harness, the dashboard and an MCP client); and 20 checks of the page runtime, including an X-style virtual timeline.
 
 - [x] Extension: senses, intent, the line, focus, folds, handoff
 - [x] Harness: local ledger, search in English and Chinese, a dashboard that is a context library
@@ -219,6 +225,7 @@ A working prototype, checked in a real browser on every push: 135 unit tests; a 
 - [x] Reading attention, X timelines, calibration from what you undo
 - [x] English and 简体中文
 - [x] Per-site rules, private paths, and deleting that reaches every copy
+- [x] A guide, and setup by pasting one line to your agent
 - [ ] Chrome Web Store release
 - [ ] Firefox and Safari
 - [ ] Search that stays fast over months of history
@@ -229,6 +236,7 @@ A working prototype, checked in a real browser on every push: 135 unit tests; a 
 ## Development
 
 ```bash
+bun run setup       # build, check, connect Claude Code (asks first)
 bun test            # unit tests: core, extension, harness
 bun run typecheck   # tsc, strict
 bun run e2e         # real Chromium + extension + demo site + harness + dashboard + MCP

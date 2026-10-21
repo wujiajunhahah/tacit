@@ -11,15 +11,25 @@ function shellQuote(s: string): string {
   return /^[\w./:@%+=-]+$/.test(s) ? s : `'${s.replaceAll("'", `'\\''`)}'`;
 }
 
-/** Absolute paths, because MCP clients start servers without the user's shell PATH. */
+const isDefaultHome = (home: string) => home === join(homedir(), '.tacit');
+
+/**
+ * `claude mcp add` arguments, at user scope so Tacit is there in every project. Options come before the name, and
+ * `--transport` separates the variadic `--env` from it, as the Claude Code docs ask. Absolute paths: clients start
+ * servers without the user's PATH.
+ */
+export function claudeAddArgs(home: string, runtime = process.execPath): string[] {
+  const env = isDefaultHome(home) ? [] : ['--env', `TACIT_HOME=${home}`];
+  return ['mcp', 'add', '--scope', 'user', ...env, '--transport', 'stdio', 'tacit', '--', runtime, MCP_PATH];
+}
+
 export function connectInfo(engine: EngineChoice, home: string, runtime = process.execPath): ConnectResponse {
-  const env = home === join(homedir(), '.tacit') ? undefined : { TACIT_HOME: home };
-  const envFlag = env ? ` -e TACIT_HOME=${shellQuote(home)}` : '';
+  const env = isDefaultHome(home) ? undefined : { TACIT_HOME: home };
   return {
     engine: engine.name,
     model: engine.model,
     mcpPath: MCP_PATH,
-    claudeCommand: `claude mcp add --scope user tacit${envFlag} -- ${shellQuote(runtime)} ${shellQuote(MCP_PATH)}`,
+    claudeCommand: ['claude', ...claudeAddArgs(home, runtime)].map(shellQuote).join(' '),
     mcpConfig: { mcpServers: { tacit: { command: runtime, args: [MCP_PATH], ...(env ? { env } : {}) } } },
   };
 }

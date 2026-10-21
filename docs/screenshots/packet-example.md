@@ -1,5 +1,5 @@
 # Context: Notes on a context harness · Margins
-http://127.0.0.1:58764/article.html
+http://127.0.0.1:60286/article.html
 
 **What I'm trying to do** (inferred · 95%): decision latency
 - searched “decision latency” · just now
@@ -9,8 +9,8 @@ http://127.0.0.1:58764/article.html
 **How I got here:** searched “decision latency” → on “decision latency - Seek” → clicked “Notes on a context harness”
 
 ## Passages I read closely
-- (6 s) That threshold is why decision latency matters more to an interface than raw intelligence. A suggestion that arrives in three hundred milliseconds can sit inside the gesture that triggered it. The same suggestion arriving in four seconds has to live somewhere else, usually in a chat panel beside…
 - (5 s) A harness therefore has to plan its time the way a game engine plans a frame. Reading the page, updating the record, guessing the intent and ranking what is on screen all have to fit inside the same small window, with room left over for whatever goes wrong. The split below is the one we aim for in…
+- (5 s) That threshold is why decision latency matters more to an interface than raw intelligence. A suggestion that arrives in three hundred milliseconds can sit inside the gesture that triggered it. The same suggestion arriving in four seconds has to live somewhere else, usually in a chat panel beside…
 
 ## Most relevant on this page
 ### System One decisions

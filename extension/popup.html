@@ -61,6 +61,9 @@
       button:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
       .actions { display: flex; gap: 6px; margin-top: 12px; }
       .muted { color: var(--ink-3); }
+      .guide { margin: 12px 0 0; font-size: 12px; }
+      .guide a { color: var(--ink-3); text-underline-offset: 3px; }
+      .guide a:hover { color: var(--ink); }
       #mcp-help { word-break: break-all; margin: 10px 0 0; }
     </style>
   </head>
@@ -111,6 +114,7 @@
       <button id="mcp" data-i18n="popup.connect"></button>
     </div>
     <p id="mcp-help" class="muted mono" hidden></p>
+    <p class="guide"><a id="guide" target="_blank" rel="noreferrer" data-i18n="popup.guide"></a></p>
 
     <script src="dist/popup.js"></script>
   </body>

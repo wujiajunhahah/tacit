@@ -39,6 +39,41 @@ How Tacit decides what to show, when to act, and what to learn. [The manifesto](
 
 Every turn runs locally in milliseconds; Jev, when enabled, only refines it. Scaling up means more senses feeding the same ledger, not more UI.
 
+## Who decides
+
+Every decision in the loop has one owner. Prefer them in this order:
+
+| Owner | Takes | Never takes |
+|---|---|---|
+| **Code** | Anything that follows from rules, or runs on every event: privacy, extraction, attention, intent, the gate, calibration, the packet. | |
+| **Pre-written** | Everything people or models read: copy in both languages, the packet's structure, the questions put to a model, the setup prompt. | |
+| **A small typed model** (Jev, optional) | Judgments of meaning that must come back in under ~400 ms as a typed answer: a choice, a score, a yes or no. | The final say: its answer goes through the gate. |
+| **A large model** (your own agent) | Open-ended work: explain, write, plan, act across tools. Only through the port, only when you ask. | Anything Tacit does on its own. |
+
+You own everything irreversible or outward-facing.
+
+| Decision | Owner | Budget | If it fails |
+|---|---|---|---|
+| Read this page at all? | Code, with your rules: pause, never-read list, private paths | < 1 ms | Do not read |
+| What is on it, and what kind of page? | Code: article, feed, repository, search | < 30 ms | The generic reader |
+| How did you get here? | Code: navigation events, the referrer | < 1 ms | "Unknown" |
+| What counts as reading? | Code; thresholds pre-written, the pointer's yours | every 500 ms | Nothing counts |
+| What are you after, and how sure? | Code: weights, decay, softmax | < 5 ms | Ask |
+| Which step next, and which posts matter? | Jev when on, in one batched call (a choice, up to 40 yes/no); else the local engine | 2.5 s cap; the local answer shows first | The local engine |
+| Which passages answer you? | Code: ranking against your words | < 5 ms | No marks |
+| Act, suggest or ask? | Code: combined confidence against the calibrated thresholds | < 1 ms | Ask |
+| What does the line say? | Pre-written copy, filled with your words and the page's | | |
+| What does the agent get? | Code fills a pre-written packet; nothing is paraphrased | < 10 ms | The outline |
+| Did it work? | You: keep, undo, unfold | | |
+| Should the bar move? | Code: calibration, explained in the dashboard | < 5 ms | The defaults |
+| What to do with the context? | Your agent's model, through MCP | the agent's | |
+
+Per visit: at most one model call, batched, and no large-model calls. Everything else is code you can read and test.
+
+**Branches.** No harness: the extension works alone. No key, an error or a timeout: the local engine. Unsure: ask, with choices. An unfamiliar machine at setup: your agent, with a pre-written prompt, while a script does the deterministic steps.
+
+**Adding a model.** A new small model answers the same three typed questions within the budget, keeps the local engine as its fallback, and sees no more than a decision request carries ([PRIVACY.md](PRIVACY.md) lists it). A large model never joins the loop; it stays behind the port.
+
 ## Signals
 
 | Kind | Base | Counts when | Can name the intent |

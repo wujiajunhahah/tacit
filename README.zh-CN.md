@@ -18,7 +18,7 @@ Tacit 读取你正在看的页面，以及你是怎么一路来到这里的，�
 [![Local first](https://img.shields.io/badge/your_data-stays_local-9ecd2e?style=flat-square&labelColor=17161c)](#隐私与安全)
 [![Bun](https://img.shields.io/badge/Bun-1.4-17161c?style=flat-square)](https://bun.sh)
 
-[English](README.md) · **简体中文** · [宣言](MANIFESTO.zh-CN.md) · [设计](DESIGN.zh-CN.md) · [快速开始](#快速开始) · [给 agent 用](#给-agent-用mcp)
+[English](README.md) · **简体中文** · [使用指南](GUIDE.zh-CN.md) · [宣言](MANIFESTO.zh-CN.md) · [设计](DESIGN.zh-CN.md) · [快速开始](#快速开始) · [给 agent 用](#给-agent-用mcp)
 
 <br>
 
@@ -61,7 +61,13 @@ Tacit 补上的是缺失的 context 这一层。它读页面，也读把你带�
 
 ## 快速开始
 
-需要 [Bun](https://bun.sh) 1.4+，以及 Chrome 或任何 Chromium 内核的浏览器。
+**最快的方式：** 把下面这段话粘贴给 Claude Code、Cursor、Codex 或任何编程 agent，它会帮你装好 Tacit，只在需要你亲手做的那一步叫你。
+
+```text
+Set up Tacit on this computer. Read https://raw.githubusercontent.com/wujiajunhahah/tacit/main/docs/agent-setup.md and follow it step by step. Ask me only where it says so.
+```
+
+装好之后能玩什么，以及怎么不装任何东西先试一下，见[使用指南](GUIDE.zh-CN.md)。自己动手装的话，需要 [Bun](https://bun.sh) 1.4+，以及 Chrome 或任何 Chromium 内核的浏览器。
 
 ```bash
 git clone https://github.com/wujiajunhahah/tacit.git
@@ -78,7 +84,7 @@ bun run build
 bun run harness
 ```
 
-**3. 接上你的 agent。** 在仓库目录下运行：
+**3. 接上你的 agent。** `bun run setup` 会替 Claude Code 完成这一步，并装上一个 skill，告诉它什么时候该用 Tacit。也可以自己在仓库目录下运行：
 
 ```bash
 claude mcp add --scope user tacit -- bun "$PWD/daemon/mcp.ts"
@@ -210,7 +216,7 @@ TYPESAFE_API_KEY=... bun run harness
 
 ## 进展
 
-一个能用的原型，每次推送都在真实浏览器里验证：135 个单元测试；41 项端到端检查（真实 Chromium、构建好的扩展、demo 站点、harness、dashboard 和一个 MCP 客户端）；以及 20 项网页运行时检查，包括一个仿 X 的虚拟时间线。
+一个能用的原型，每次推送都在真实浏览器里验证：140 个单元测试；41 项端到端检查（真实 Chromium、构建好的扩展、demo 站点、harness、dashboard 和一个 MCP 客户端）；以及 20 项网页运行时检查，包括一个仿 X 的虚拟时间线。
 
 - [x] 扩展：感知、意图、那一行字、专注、折叠、交接
 - [x] harness：本地账本、中英文搜索、作为上下文资料库的 dashboard
@@ -218,7 +224,7 @@ TYPESAFE_API_KEY=... bun run harness
 - [x] Jev 判断，带本地兜底
 - [x] 阅读注意力、X 时间线、按撤销校准
 - [x] 英文和简体中文
-- [x] 按网站的规则、私密路径，删除会同步到每一份副本
+- [x] 使用指南，以及把一句话粘贴给 agent 就能装好
 - [ ] 上架 Chrome Web Store
 - [ ] Firefox 和 Safari
 - [ ] 几个月的浏览历史也能快速搜索
@@ -229,6 +235,7 @@ TYPESAFE_API_KEY=... bun run harness
 ## 开发
 
 ```bash
+bun run setup       # 构建、检查、接上 Claude Code（会先问你）
 bun test            # 单元测试：core、扩展、harness
 bun run typecheck   # tsc，严格模式
 bun run e2e         # 真实 Chromium + 扩展 + demo 站点 + harness + dashboard + MCP

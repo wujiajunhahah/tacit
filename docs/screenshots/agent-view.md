@@ -5,7 +5,7 @@ Captured by `bun run e2e` after the demo flows.
 ## tacit_current_context
 
 # Context: tacit-labs/reflex: Calibrated reflexes for interfaces · Codeyard
-http://127.0.0.1:58764/repo.html
+http://127.0.0.1:60286/repo.html
 
 **What I'm trying to do** (inferred · 90%): install reflex
 - searched “install reflex” · just now
@@ -71,13 +71,13 @@ Other readings:
 3 pages the user read match “decision latency”, best first:
 
 1. tacit-labs/reflex: Calibrated reflexes for interfaces · Codeyard (127.0.0.1 · last seen just now)
-   http://127.0.0.1:58764/repo.html
+   http://127.0.0.1:60286/repo.html
    import { choose } from '@tacit-labs/reflex'; const result = choose({ state: 'Searched "decision latency", opened an essay', options: [ { id: 'latency', label: 'Latency: why 400 ms matters' }, { id:…
 
 2. Notes on a context harness · Margins (127.0.0.1 · last seen just now)
-   http://127.0.0.1:58764/article.html
+   http://127.0.0.1:60286/article.html
    09:14:02 search "decision latency" seek 09:14:09 follow "Latency: why 400 ms matters" margins 09:14:41 select "below a certain delay a tool disappears" 09:15:30 dwell latency-why-400-ms-matters 48 s…
 
 3. Home / Murmur (127.0.0.1 · last seen just now)
-   http://127.0.0.1:58764/feed.html
+   http://127.0.0.1:60286/feed.html
    p95 decision latency dropped from 610 ms to 290 ms after we stopped re-tokenizing the whole page on every scroll event. Profile before you optimize, then profile again.

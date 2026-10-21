@@ -67,8 +67,8 @@ describe('library API', () => {
     expect(c.engine).toBe('local');
     expect(c.mcpPath).toEndWith('/daemon/mcp.ts');
     expect(existsSync(c.mcpPath)).toBe(true);
-    expect(c.claudeCommand).toStartWith('claude mcp add --scope user tacit');
-    expect(c.claudeCommand).toContain(`TACIT_HOME=${home}`);
+    expect(c.claudeCommand).toStartWith('claude mcp add --scope user');
+    expect(c.claudeCommand).toContain(`--env TACIT_HOME=${home} --transport stdio tacit --`);
     expect(c.claudeCommand).toEndWith(c.mcpPath);
     expect(c.mcpConfig.mcpServers.tacit).toEqual({ command: process.execPath, args: [c.mcpPath], env: { TACIT_HOME: home } });
   });

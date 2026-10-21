@@ -1,4 +1,4 @@
-import { HARNESS_ORIGIN, clampPointerDwell } from '../../core';
+import { GUIDE_URL, HARNESS_ORIGIN, clampPointerDwell } from '../../core';
 import { detectLocale, getLocale, setLocale, t, type Key, type LocalePref } from './i18n';
 import { send, type StatusReply } from './messages';
 import { patternMatches, saveSettings, type Settings } from './settings';
@@ -20,6 +20,7 @@ async function activeTab(): Promise<{ host: string; path: string }> {
 function translate(status: StatusReply, site: string): void {
   document.documentElement.lang = getLocale();
   document.querySelectorAll<HTMLElement>('[data-i18n]').forEach((el) => (el.textContent = t(el.dataset.i18n as Key)));
+  $('guide').setAttribute('href', GUIDE_URL[getLocale()]);
   $('site').textContent = t('popup.site', { site });
   $('harness').textContent = t(status.harness.connected ? 'popup.connected' : 'popup.offline');
   $('engine').textContent = !status.harness.connected
