@@ -8,9 +8,12 @@ import { Store, tacitHome } from './db';
 import { EMPTY_LEDGER, formatContext, formatIntent, formatPage, formatSearch, formatTrail } from './format';
 import * as queries from './queries';
 
+// Agents that load tools only when needed (Claude Code, Codex, Cursor) see this and the tool names, not the
+// descriptions, until then: so it names the tools to reach for.
 const INSTRUCTIONS =
   'Tacit records what the user reads in their browser (pages, how they got there, selections, copies, searches) on their machine. ' +
-  "Use it instead of asking the user to copy and paste: when they mention 'this page', 'what I'm reading' or something they saw earlier, read it from Tacit first.";
+  "Use it instead of asking the user to copy and paste: when they mention 'this page', 'what I'm reading' or something they saw earlier, " +
+  'call tacit_current_context first; tacit_search finds what they read before, and tacit_page reads one page in full.';
 
 const READ_ONLY = { readOnlyHint: true, openWorldHint: false };
 

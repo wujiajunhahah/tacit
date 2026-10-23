@@ -7,7 +7,7 @@ import type { Page } from 'playwright';
 import { HARNESS_ORIGIN, HARNESS_PORT } from '../core';
 import { startHarness } from '../daemon/server';
 import { startDemo } from '../demo/serve';
-import { capsuleText, launch, ROOT } from './browser';
+import { capsuleText, launch, pairWith, ROOT } from './browser';
 
 await Bun.$`bun run ${join(ROOT, 'scripts/build.ts')}`.quiet();
 const home = mkdtempSync(join(tmpdir(), 'tacit-rec-'));
@@ -48,6 +48,7 @@ async function typeSearch(page: Page, query: string): Promise<void> {
 }
 
 const b = await launch({ videoDir });
+await pairWith(b, harness.token);
 const page = await b.context.newPage();
 try {
   await page.goto(`${site}/index.html`);

@@ -18,7 +18,7 @@ import {
 } from '../../core';
 import { startAttention, type Attention } from './attention';
 import { copyText } from './clipboard';
-import { POST, extractPage, newFeedMemory, type Extracted, type FeedMemory } from './extract';
+import { POST, extractPage, isWall, newFeedMemory, type Extracted, type FeedMemory } from './extract';
 import { isOwn, normalizeUrl } from './extract/dom';
 import { detectLocale, quote, setLocale, t } from './i18n';
 import { send, type DecideReply, type HarnessStatus, type IntentReply, type ToContent, type VisitStartReply } from './messages';
@@ -78,7 +78,10 @@ async function main(): Promise<void> {
   if (window.top !== window || document.contentType !== 'text/html') return;
   // A page running Tacit as a page script (the demo's /try) already has its line.
   if (!('__TACIT_WEB__' in globalThis) && document.documentElement.dataset.tacit === 'web') return;
-  if (location.origin === HARNESS_ORIGIN || location.host === `localhost:${HARNESS_PORT}`) return;
+  if (location.origin === HARNESS_ORIGIN || location.host === `localhost:${HARNESS_PORT}`) {
+    if (location.origin === HARNESS_ORIGIN && location.pathname === '/pair') pairHere();
+    return;
+  }
   settings = await loadSettings();
   setLocale(detectLocale(settings.locale));
   onSettingsChanged((next) => {
@@ -102,6 +105,20 @@ async function main(): Promise<void> {
   if (activeHere()) await start();
 }
 
+/**
+ * On the harness's pairing page: say we are here, take the token the page hands over, and let the background check
+ * it with the harness before keeping it. Only messages from this very page, on the harness's origin, count.
+ */
+function pairHere(): void {
+  addEventListener('message', (e) => {
+    if (e.source !== window || e.origin !== HARNESS_ORIGIN || e.data?.type !== 'tacit:pair' || typeof e.data.token !== 'string') return;
+    void send<{ ok: boolean }>({ type: 'pair', token: e.data.token })
+      .then((r) => r.ok, () => false)
+      .then((ok) => postMessage({ type: 'tacit:paired', ok }, HARNESS_ORIGIN));
+  });
+  postMessage({ type: 'tacit:ready' }, HARNESS_ORIGIN);
+}
+
 function viewOptions(s: Pick<Session, 'calibration'>): ViewOptions {
   return { thresholds: s.calibration.thresholds, folds: foldsAllowed(s.calibration, location.href) };
 }
@@ -113,6 +130,8 @@ async function start(): Promise<void> {
     installPageStyles();
     const memory = newFeedMemory();
     const extracted = extractPage(document, location, memory);
+    // A sign-in or sign-up page is never read: no visit, no line, nothing kept.
+    if (isWall(document, extracted.page)) return;
     const visitId = crypto.randomUUID();
     const reply = await send<VisitStartReply>({
       type: 'visit:start',
@@ -164,7 +183,14 @@ async function start(): Promise<void> {
 function reextractLater(s: Session, delay: number, attempt = 0): void {
   setTimeout(() => {
     if (session !== s) return;
-    const next = extractPage(document, location, s.memory);
+    let next: Extracted;
+    try {
+      next = extractPage(document, location, s.memory);
+    } catch (err) {
+      // The page is in the middle of something; what was read stands.
+      console.debug('[tacit] could not read the page again', err);
+      return;
+    }
     if (next.page.textLength > s.extracted.page.textLength * 1.3 + 200) {
       s.extracted = next;
       s.attention.observe(next.elements, next.page.blocks);
@@ -225,12 +251,14 @@ function recompute(s: Session, refineNow = true): void {
 
 async function refine(): Promise<void> {
   const s = session;
-  if (!s || !s.harness.connected || s.harness.engine !== 'jev') return;
+  // The code engine is already in the extension; only a model can refine what it shows.
+  if (!s || !s.harness.connected || s.harness.engine === 'local') return;
   const decision = buildDecision(s.extracted.page, s.intent, s.view, s.extracted.feed);
   if (!decision) return;
   try {
     const { response } = await send<DecideReply>({ type: 'decide', request: decision.request });
-    if (session !== s) return;
+    // No model answered, so the harness's code engine did: the ranking on screen already knows the page better.
+    if (session !== s || response.engine === 'local') return;
     s.view = refineView(s.view, s.intent, response, decision.keys, s.unfolded, s.extracted.page.actions, { ...viewOptions(s), page: s.extracted.page });
     render();
   } catch (err) {
@@ -362,11 +390,34 @@ function runSuggestion(index: number): void {
   confirmAndExecute(newEntry('navigate', a.label, reason, false, confidence));
   void send({ type: 'click', click: { label: a.label, href: a.href, at: Date.now(), viaTacit: true } })
     .catch(() => undefined)
-    .finally(() => {
-      const el = s.extracted.elements.get(a.id) as HTMLElement | undefined;
-      if (el?.isConnected) el.click();
-      else location.assign(a.href!);
-    });
+    .finally(() => follow(s.extracted.elements.get(a.id) as HTMLElement | undefined, a.href!));
+}
+
+/** How long a click gets to start leaving the page before Tacit goes to the address itself. */
+const FOLLOW_MS = 700;
+
+/**
+ * Follows a link the way the page means it, with a click, so single-page apps route it their way. Some pages keep
+ * the click for themselves (a menu opens, a handler does nothing): if nothing has started to leave by FOLLOW_MS,
+ * go to the address. Not for links meant to open elsewhere or to download.
+ */
+function follow(el: HTMLElement | undefined, href: string): void {
+  if (!el?.isConnected) {
+    location.assign(href);
+    return;
+  }
+  const before = location.href;
+  let leaving = false;
+  const leave = () => (leaving = true);
+  addEventListener('beforeunload', leave, { once: true });
+  addEventListener('pagehide', leave, { once: true });
+  el.click();
+  const elsewhere = el.getAttribute('target') === '_blank' || el.hasAttribute('download');
+  setTimeout(() => {
+    removeEventListener('beforeunload', leave);
+    removeEventListener('pagehide', leave);
+    if (!leaving && !elsewhere && location.href === before && !sameDocument(href, before)) location.assign(href);
+  }, FOLLOW_MS);
 }
 
 async function copyAction(s: Session, payload: string, label: string, blockId: string | undefined, reason: string, confidence: number): Promise<void> {
@@ -403,12 +454,16 @@ async function handoff(): Promise<void> {
   s.tracker.suppress(800);
   const copied = await copyText(packet.markdown);
   s.preview = packet.markdown;
-  confirmAndExecute(newEntry('handoff', 'Handed this page to your agent', `~${packet.tokens} tokens instead of ~${packet.fullPageTokens}`, false));
+  const smaller = packet.tokens < packet.fullPageTokens;
+  const size = smaller ? `~${packet.tokens} tokens instead of ~${packet.fullPageTokens}` : `~${packet.tokens} tokens, with how you got here`;
+  confirmAndExecute(newEntry('handoff', 'Handed this page to your agent', size, false));
   render();
   const pct = Math.round(packet.saved * 100);
-  const text = copied
-    ? t('toast.handoff', { tokens: packet.tokens, full: packet.fullPageTokens }) + (pct > 0 ? t('toast.saved', { pct }) : '')
-    : t('toast.handoffBlocked');
+  const text = !copied
+    ? t('toast.handoffBlocked')
+    : smaller
+      ? t('toast.handoff', { tokens: packet.tokens, full: packet.fullPageTokens }) + (pct > 0 ? t('toast.saved', { pct }) : '')
+      : t('toast.handoffWith', { tokens: packet.tokens });
   capsule.toast(text, { label: t('toast.showPacket'), run: () => capsule?.showPacket() });
 }
 
@@ -525,6 +580,13 @@ function onKey(e: KeyboardEvent): void {
   }
   if (e.key === 'Escape' && capsule.isOpen()) {
     capsule.open(false);
+    return;
+  }
+  // Open, the slip numbers its rows, and a digit alone picks one: one key fewer, on any keyboard.
+  if (capsule.isOpen() && !e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && /^Digit[1-3]$/.test(e.code)) {
+    pick(Number(e.code.slice(5)) - 1);
+    e.preventDefault();
+    e.stopPropagation();
     return;
   }
   if (!e.altKey || e.metaKey || e.ctrlKey) return;

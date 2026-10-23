@@ -1,4 +1,4 @@
-import { HARNESS_ORIGIN, clampPointerDwell } from '../../core';
+import { clampPointerDwell } from '../../core';
 import { GUIDE_URL } from '../../core/links';
 import { detectLocale, getLocale, setLocale, t, type Key, type LocalePref } from './i18n';
 import { send, type StatusReply } from './messages';
@@ -23,11 +23,12 @@ function translate(status: StatusReply, site: string): void {
   document.querySelectorAll<HTMLElement>('[data-i18n]').forEach((el) => (el.textContent = t(el.dataset.i18n as Key)));
   $('guide').setAttribute('href', GUIDE_URL[getLocale()]);
   $('site').textContent = t('popup.site', { site });
-  $('harness').textContent = t(status.harness.connected ? 'popup.connected' : 'popup.offline');
-  $('engine').textContent = !status.harness.connected
-    ? t('popup.alone')
-    : status.harness.engine === 'jev'
-      ? t('popup.jev', { model: status.harness.model ? ` (${status.harness.model})` : '' })
+  const h = status.harness;
+  $('harness').textContent = t(h.connected ? 'popup.connected' : h.paired ? 'popup.offline' : 'popup.unpaired');
+  $('engine').textContent = !h.connected
+    ? t(h.paired ? 'popup.alone' : 'popup.pairHint')
+    : h.engine !== 'local'
+      ? t('popup.engine', { engine: h.label ?? h.engine, model: h.model ? ` (${h.model})` : '' })
       : t('popup.local');
   $('counts').textContent = t('popup.counts', { n: status.visits }) + (status.queued ? t('popup.queued', { n: status.queued }) : '');
 }
@@ -36,17 +37,10 @@ function dwellLabel(ms: number): string {
   return t('popup.pointer.after', { s: (ms / 1000).toFixed(1) });
 }
 
+/** The exact command for this machine when the harness answers; the steps to get there when it does not. */
 async function connectCommand(): Promise<string> {
-  try {
-    const res = await fetch(`${HARNESS_ORIGIN}/v1/connect`, { signal: AbortSignal.timeout(800) });
-    if (res.ok) {
-      const j = (await res.json()) as { command?: string };
-      if (j.command) return j.command;
-    }
-  } catch {
-    // Harness not running, or an older one without /v1/connect.
-  }
-  return 'bun run harness\nclaude mcp add --scope user tacit -- bun /path/to/tacit/daemon/mcp.ts';
+  const { command } = await send<{ command: string | null }>({ type: 'connect-command' }).catch(() => ({ command: null }));
+  return command ?? 'bun run harness\nbun run pair\nbun run setup';
 }
 
 async function main(): Promise<void> {
@@ -102,7 +96,7 @@ async function main(): Promise<void> {
     await save({ ...settings, excludedDomains: [...new Set(list)] });
     $('save-excluded').textContent = t('popup.saved');
   });
-  $('ledger').addEventListener('click', () => void chrome.tabs.create({ url: `${HARNESS_ORIGIN}/` }));
+  $('ledger').addEventListener('click', () => void send({ type: 'open-dashboard' }));
   $('mcp').addEventListener('click', async () => {
     const help = $('mcp-help');
     if (help.hidden) help.textContent = await connectCommand();

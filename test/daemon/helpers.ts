@@ -113,16 +113,28 @@ export function seedTrail(): { events: IngestEvent[]; article: PageModel; zh: Pa
   return { events, article, zh, current };
 }
 
+const tokens = new Map<string, string>();
+
+/** Calls made with post(), getJson() and authed() to this harness carry its token, as Tacit's own clients do. */
+export function trust(h: { url: string; token: string }): void {
+  tokens.set(h.url, h.token);
+}
+
+export function authed(base: string, headers: Record<string, string> = {}): Record<string, string> {
+  const token = tokens.get(base);
+  return token ? { Authorization: `Bearer ${token}`, ...headers } : headers;
+}
+
 export function post(base: string, path: string, body: unknown, headers: Record<string, string> = {}): Promise<Response> {
   return fetch(`${base}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...headers },
+    headers: authed(base, { 'Content-Type': 'application/json', ...headers }),
     body: typeof body === 'string' ? body : JSON.stringify(body),
   });
 }
 
 export async function getJson<T>(base: string, path: string): Promise<T> {
-  const res = await fetch(`${base}${path}`);
+  const res = await fetch(`${base}${path}`, { headers: authed(base) });
   if (!res.ok) throw new Error(`${path} → ${res.status}`);
   return (await res.json()) as T;
 }

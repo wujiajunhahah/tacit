@@ -1,5 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { readFileSync, statSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type {
+  BriefResponse,
   CurrentContextResponse,
   DecideRequest,
   DecideResponse,
@@ -9,10 +12,14 @@ import type {
   SearchHit,
   TrailItem,
 } from '../../core';
+import { harnessProof, provesToken } from '../../core';
+import { MODELS_FILE } from '../../daemon/engine';
+import { saveKey } from '../../daemon/keys';
 import { MAX_BODY_BYTES, startHarness, type Harness } from '../../daemon/server';
 import {
   EXTENSION,
   MIN,
+  authed,
   getJson,
   ledgerEntry,
   pageEvent,
@@ -21,6 +28,7 @@ import {
   seedTrail,
   simplePage,
   tempHome,
+  trust,
   visitTo,
 } from './helpers';
 
@@ -43,6 +51,7 @@ const seed = seedTrail();
 beforeAll(async () => {
   home = tempHome();
   h = startHarness({ port: 0, home, env: {} });
+  trust(h);
   const res = await post(h.url, '/v1/ingest', { events: seed.events });
   expect(res.status).toBe(200);
   expect((await res.json()) as unknown).toEqual({ ok: true, accepted: 3 });
@@ -70,9 +79,18 @@ describe('harness API', () => {
     expect(Object.keys(ctx.intent.terms)).toContain('latency');
     expect(ctx.packet?.markdown).toContain('# Context: Context is the new interface');
     expect(ctx.packet?.markdown).toContain('**How I got here:** searched “decision latency”');
-    expect(ctx.packet?.markdown).toContain('> Below roughly 400 milliseconds people stop waiting');
+    expect(ctx.packet?.markdown).toContain('- selected: “Below roughly 400 milliseconds people stop waiting”');
     expect(ctx.packet?.markdown).toContain('## Before this');
     expect(ctx.packet!.tokens).toBeLessThan(ctx.packet!.fullPageTokens);
+  });
+
+  test('an agent gets a note about the screen only for a prompt that needs it', async () => {
+    const pointing = (await (await post(h.url, '/v1/brief', { prompt: "what's the main point of this article?" })).json()) as BriefResponse;
+    expect(pointing).toMatchObject({ inject: true, reason: 'pointing' });
+    expect(pointing.text).toContain('Context is the new interface');
+    // This harness decides in code only, so a prompt that does not point gets nothing.
+    expect(await (await post(h.url, '/v1/brief', { prompt: 'write a regex for emails' })).json()).toEqual({ inject: false, reason: 'unrelated' });
+    expect((await post(h.url, '/v1/brief', { prompt: 42 })).status).toBe(400);
   });
 
   test('max_passages is accepted and never grows the packet', async () => {
@@ -108,8 +126,8 @@ describe('harness API', () => {
     const res = await getJson<PageResponse>(h.url, `/v1/page?url=${encodeURIComponent(seed.article.url)}`);
     expect(res.page.blocks.length).toBe(seed.article.blocks.length);
     expect(res.visits.map((v) => v.id)).toEqual([seed.current.id]);
-    expect((await fetch(`${h.url}/v1/page?url=${encodeURIComponent('https://nowhere.example/')}`)).status).toBe(404);
-    expect((await fetch(`${h.url}/v1/page`)).status).toBe(400);
+    expect((await fetch(`${h.url}/v1/page?url=${encodeURIComponent('https://nowhere.example/')}`, { headers: authed(h.url) })).status).toBe(404);
+    expect((await fetch(`${h.url}/v1/page`, { headers: authed(h.url) })).status).toBe(400);
   });
 
   test('ledger entries are upserted by id and listed newest first', async () => {
@@ -154,8 +172,8 @@ describe('harness API', () => {
     expect((await post(h.url, '/v1/ingest', { events: [{ kind: 'nope' }] })).status).toBe(200);
     expect((await post(h.url, '/v1/ingest', 'not json')).status).toBe(400);
     expect((await post(h.url, '/v1/ingest', { events: 'nope' })).status).toBe(400);
-    expect((await fetch(`${h.url}/v1/ingest`)).status).toBe(405);
-    expect((await fetch(`${h.url}/v1/nowhere`)).status).toBe(404);
+    expect((await fetch(`${h.url}/v1/ingest`, { headers: authed(h.url) })).status).toBe(405);
+    expect((await fetch(`${h.url}/v1/nowhere`, { headers: authed(h.url) })).status).toBe(404);
   });
 
   test('GET / serves the ledger UI under a nonce CSP', async () => {
@@ -169,6 +187,37 @@ describe('harness API', () => {
     expect(html).toContain(`<script nonce="${nonce}">`);
     expect(html).toContain('Copy for agent');
     expect(html).not.toMatch(/<(script|link)[^>]+(src|href)="https?:/);
+  });
+});
+
+describe('the token', () => {
+  test('every API call but the health check needs it', async () => {
+    expect((await fetch(`${h.url}/v1/trail`)).status).toBe(401);
+    expect((await fetch(`${h.url}/v1/trail`, { headers: { Authorization: `Bearer ${'x'.repeat(43)}` } })).status).toBe(401);
+    expect((await fetch(`${h.url}/v1/ingest`, { method: 'POST', body: '{"events":[]}' })).status).toBe(401);
+    expect((await fetch(`${h.url}/v1/trail`, { headers: authed(h.url) })).status).toBe(200);
+  });
+
+  test('the health check proves this is the harness, without the token and without data', async () => {
+    const challenge = 'a'.repeat(32);
+    const open = (await (await fetch(`${h.url}/v1/health?challenge=${challenge}`)).json()) as HealthResponse;
+    expect(open).toMatchObject({ ok: true, authorized: false, proof: await harnessProof(h.token, challenge) });
+    expect(open.visits).toBeUndefined();
+    expect(await getJson<HealthResponse>(h.url, '/v1/health')).toMatchObject({ authorized: true, engine: 'local' });
+    expect(await provesToken(h.url, h.token)).toBe(true);
+    expect(await provesToken(h.url, 'y'.repeat(43))).toBe(false);
+  });
+
+  test('lives in a file only the user can read, and is the same after a restart', async () => {
+    expect(statSync(join(home, 'token')).mode & 0o777).toBe(0o600);
+    expect(readFileSync(join(home, 'token'), 'utf8').trim()).toBe(h.token);
+  });
+
+  test('the pairing page holds no data and no token', async () => {
+    const res = await fetch(`${h.url}/pair`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-security-policy')).toContain("default-src 'none'");
+    expect(await res.text()).not.toContain(h.token);
   });
 });
 
@@ -257,6 +306,7 @@ describe('decisions', () => {
       home: jevHome,
       env: { TYPESAFE_API_KEY: 'sk-test', TYPESAFE_BASE_URL: `http://127.0.0.1:${fake.port}`, TYPESAFE_MODEL: 'jev-test' },
     });
+    trust(jh);
     try {
       expect(await getJson<HealthResponse>(jh.url, '/v1/health')).toMatchObject({ engine: 'jev', model: 'jev-test' });
 
@@ -275,6 +325,28 @@ describe('decisions', () => {
       await jh.stop();
       await fake.stop(true);
       removeHome(jevHome);
+    }
+  });
+
+  test('a key set while the harness runs is used without a restart, and so is a models.json', async () => {
+    const liveHome = tempHome();
+    const live = startHarness({ port: 0, home: liveHome, env: { TYPESAFE_BASE_URL: 'http://127.0.0.1:9' }, quiet: true });
+    trust(live);
+    const lead = async () => (await getJson<HealthResponse>(live.url, '/v1/health')).decisions?.chain.map((e) => e.id);
+    const settle = async (want: string[]) => {
+      for (let i = 0; i < 40 && JSON.stringify(await lead()) !== JSON.stringify(want); i++) await Bun.sleep(50);
+      return lead();
+    };
+    try {
+      expect(await lead()).toEqual(['local']);
+      saveKey(liveHome, 'typesafe', 'sk-test');
+      expect(await settle(['jev', 'local'])).toEqual(['jev', 'local']);
+      writeFileSync(join(liveHome, MODELS_FILE), JSON.stringify({ privacy: 'local', reflex: [] }));
+      expect(await settle(['local'])).toEqual(['local']);
+      expect(live.decisions.privacy).toBe('local');
+    } finally {
+      await live.stop();
+      removeHome(liveHome);
     }
   });
 });

@@ -3,6 +3,7 @@
 import type { DeleteResponse, StatsResponse } from '../../../core';
 import { CONFIRM_DELETE_ALL, CONFIRM_HEADER } from '../../guard';
 import { del, get } from '../api';
+import { hostsOf } from '../decisions';
 import { el, external } from '../dom';
 import { bytes, t, tn, tx } from '../i18n';
 import { confirmFlow, heading } from '../parts';
@@ -12,7 +13,7 @@ const POLICY = 'https://github.com/wujiajunhahah/tacit/blob/main/PRIVACY.md';
 
 export async function render(_params: URLSearchParams, app: App): Promise<Rendered> {
   const s = await get<StatsResponse>('/v1/stats');
-  const jev = app.health?.engine === 'jev';
+  const hosts = hostsOf(app.health?.decisions);
   const root = el(
     'div',
     'privacy',
@@ -22,7 +23,7 @@ export async function render(_params: URLSearchParams, app: App): Promise<Render
       'lede',
       ...tx('privacy.where', { path: el('code', 'mono', s.storage.display), size: bytes(s.storage.bytes) }),
       ' ',
-      t(jev ? 'privacy.jev' : 'privacy.local'),
+      hosts ? t('privacy.cloud', { hosts }) : t('privacy.local'),
     ),
   );
   const counts = {

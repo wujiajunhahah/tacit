@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import type { CalibrationResponse, ConnectResponse, PageDetailResponse, PagesResponse, StatsResponse } from '../../core';
 import { CONFIRM_DELETE_ALL, CONFIRM_HEADER } from '../../daemon/guard';
 import { startHarness, type Harness } from '../../daemon/server';
-import { EXTENSION, articlePage, getJson, ledgerEntry, pageEvent, post, removeHome, simplePage, tempHome, visitTo, zhPage } from './helpers';
+import { articlePage, authed, EXTENSION, getJson, ledgerEntry, pageEvent, post, removeHome, simplePage, tempHome, trust, visitTo, zhPage } from './helpers';
 
 let home: string;
 let h: Harness;
@@ -11,11 +11,12 @@ const article = articlePage();
 const zh = zhPage();
 const other = simplePage('https://other.example/', 'Other', 'Another page entirely.');
 
-const del = (path: string, headers: Record<string, string> = {}) => fetch(`${h.url}${path}`, { method: 'DELETE', headers });
+const del = (path: string, headers: Record<string, string> = {}) => fetch(`${h.url}${path}`, { method: 'DELETE', headers: authed(h.url, headers) });
 
 beforeAll(async () => {
   home = tempHome();
   h = startHarness({ port: 0, home, env: {} });
+  trust(h);
   const reads = Array.from({ length: 35 }, (_, i) => ({ blockId: `filler-${i}`, text: 'x'.repeat(400), ms: 1000 + i, via: 'view', at: Date.now() }));
   reads[0] = { blockId: article.blocks[2]!.id, text: article.blocks[2]!.text, ms: 9000, via: 'pointer', at: Date.now() };
   const res = await post(h.url, '/v1/ingest', {
@@ -55,8 +56,8 @@ describe('library API', () => {
     expect(site.pages.map((p) => p.url)).toEqual([zh.url]);
     const found = await getJson<PagesResponse>(h.url, `/v1/pages?q=${encodeURIComponent('上下文')}`);
     expect(found.pages[0]?.url).toBe(zh.url);
-    expect((await fetch(`${h.url}/v1/pages?sort=loudest`)).status).toBe(400);
-    expect((await fetch(`${h.url}/v1/pages?limit=5000`)).status).toBe(400);
+    expect((await fetch(`${h.url}/v1/pages?sort=loudest`, { headers: authed(h.url) })).status).toBe(400);
+    expect((await fetch(`${h.url}/v1/pages?limit=5000`, { headers: authed(h.url) })).status).toBe(400);
   });
 
   test('stats and connect describe this machine', async () => {
@@ -71,6 +72,9 @@ describe('library API', () => {
     expect(c.claudeCommand).toContain(`--env TACIT_HOME=${home} --transport stdio tacit --`);
     expect(c.claudeCommand).toEndWith(c.mcpPath);
     expect(c.mcpConfig.mcpServers.tacit).toEqual({ command: process.execPath, args: [c.mcpPath], env: { TACIT_HOME: home } });
+    // Any agent with a terminal: the command, and the line for its instructions.
+    expect(c.cli).toBe(`env TACIT_HOME=${home} ${process.execPath} ${c.mcpPath.replace(/mcp\.ts$/, 'cli.ts')}`);
+    expect(c.agentLine).toStartWith(`\`${c.cli}\` prints what the user has open in their browser`);
   });
 
   test('calibration reads the stored ledger', async () => {
@@ -100,7 +104,7 @@ describe('deleting', () => {
     expect((await del('/v1/all')).status).toBe(400);
     expect((await del('/v1/all', { [CONFIRM_HEADER]: 'yes' })).status).toBe(400);
     expect((await del('/v1/all', { [CONFIRM_HEADER]: CONFIRM_DELETE_ALL, Origin: EXTENSION })).status).toBe(403);
-    expect((await fetch(`${h.url}/v1/all`)).status).toBe(405);
+    expect((await fetch(`${h.url}/v1/all`, { headers: authed(h.url) })).status).toBe(405);
 
     const res = await del('/v1/all', { [CONFIRM_HEADER]: CONFIRM_DELETE_ALL });
     expect(res.status).toBe(200);

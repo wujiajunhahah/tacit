@@ -6,6 +6,7 @@ import { HOST_TAG } from '../extract/dom';
 import { ago, getLocale, hasCJK, t, tn, type Key } from '../i18n';
 import type { HarnessStatus } from '../messages';
 import type { Suggestion, View } from '../view';
+import { arrive, pulse, stagger } from './motion';
 import { CAPSULE_CSS } from './style';
 
 export interface CapsuleModel {
@@ -82,6 +83,8 @@ export class Capsule {
   /** A confirmation the line shows for a few seconds instead of its suggestion. */
   private note: { text: string; action?: { label: string; run(): void } } | undefined;
   private noteTimer: ReturnType<typeof setTimeout> | undefined;
+  /** What is on screen, so a render that changes nothing touches nothing, and one that does can say so. */
+  private shown: { line?: string; slip?: string; step?: string } = {};
 
   constructor(private readonly handlers: CapsuleHandlers) {}
 
@@ -89,7 +92,9 @@ export class Capsule {
     if (this.host?.isConnected) return;
     this.host = document.createElement(HOST_TAG);
     this.root = this.host.attachShadow({ mode: 'open' });
-    this.root.innerHTML = `<style>${CAPSULE_CSS}</style><div class="tc" data-mode="quiet"><div class="slip" role="dialog" aria-label="Tacit"></div><div class="line" role="button" tabindex="0"></div><div class="sr" role="status" aria-live="polite"></div></div>`;
+    // A page may have removed the old line without destroy(): nothing of it is on screen any more.
+    this.shown = {};
+    this.root.innerHTML = `<style>${CAPSULE_CSS}</style><div class="tc" data-mode="quiet"><div class="slip" role="dialog" aria-label="Tacit"></div><div class="line" role="button" tabindex="0"><span class="glyph" aria-hidden="true"></span><span class="lc"></span></div><div class="sr" role="status" aria-live="polite"></div></div>`;
     document.documentElement.appendChild(this.host);
     const tc = this.tc()!;
     tc.addEventListener('click', (e) => this.onClick(e));
@@ -104,6 +109,7 @@ export class Capsule {
     this.host?.remove();
     this.host = null;
     this.root = null;
+    this.shown = {};
   }
 
   isOpen(): boolean {
@@ -115,8 +121,10 @@ export class Capsule {
       this.pinned = false;
       this.preview = false;
     }
+    const opening = on && !this.isOpen();
     this.tc()?.toggleAttribute('data-open', on);
     if (this.model) this.render(this.model);
+    if (opening) stagger(this.root?.querySelectorAll('.sugs li, .choice, .slip pre, .tools') ?? []);
   }
 
   /** Keyboard hints appear only while ⌥ is held. */
@@ -155,9 +163,26 @@ export class Capsule {
     tc.setAttribute('data-mode', model.view.mode);
     tc.setAttribute('lang', getLocale());
     const line = this.root!.querySelector('.line')!;
-    line.innerHTML = this.lineHtml(model);
-    line.setAttribute('aria-label', line.textContent?.replace(/\s+/g, ' ').trim() || 'Tacit');
-    this.root!.querySelector('.slip')!.innerHTML = this.slipHtml(model);
+    const html = this.lineHtml(model);
+    if (html !== this.shown.line) {
+      const content = line.querySelector('.lc')!;
+      content.innerHTML = html;
+      if (this.shown.line !== undefined) arrive(content.querySelector('.say'));
+      this.shown.line = html;
+      line.setAttribute('aria-label', line.textContent?.replace(/\s+/g, ' ').trim() || 'Tacit');
+    }
+    // A new next step, from the page or from a model: the glyph breathes once. A confirmation in between is not one.
+    const v = model.view;
+    if (!this.note) {
+      const step = `${v.mode}|${v.suggestions[0]?.action.id ?? ''}`;
+      if (this.shown.step !== undefined && step !== this.shown.step && (v.mode === 'act' || v.mode === 'suggest')) pulse(line.querySelector('.glyph'));
+      this.shown.step = step;
+    }
+    const slip = this.slipHtml(model);
+    if (slip !== this.shown.slip) {
+      this.root!.querySelector('.slip')!.innerHTML = slip;
+      this.shown.slip = slip;
+    }
   }
 
   private tc(): HTMLElement | null {
@@ -177,17 +202,17 @@ export class Capsule {
     return bits.join(' · ');
   }
 
+  /** Everything in the line after the glyph, which stays, so its ink can change in place. */
   private lineHtml(m: CapsuleModel): string {
-    const glyph = '<span class="glyph" aria-hidden="true"></span>';
     if (this.note) {
       const a = this.note.action;
-      return `${glyph}<span class="say"><span class="obj">${esc(this.note.text)}</span></span>${a ? `<button class="act" data-act="note">${esc(a.label)}</button>` : ''}`;
+      return `<span class="say"><span class="obj">${esc(this.note.text)}</span></span>${a ? `<button class="act" data-act="note">${esc(a.label)}</button>` : ''}`;
     }
     const v = m.view;
     const asking = v.mode === 'ask' || v.mode === 'quiet';
     const prompt = `<span class="muted">${esc(t(v.askChoices.length ? 'line.ask' : 'slip.nothing'))}</span>`;
     // Open, the line is the slip's header: what Tacit knows. The steps are in the list above, once.
-    if (this.isOpen()) return `${glyph}<span class="say">${asking ? prompt : `${this.intentHtml(m)}<span class="src">· ${esc(this.provenance(m))}</span>`}</span>`;
+    if (this.isOpen()) return `<span class="say">${asking ? prompt : `${this.intentHtml(m)}<span class="src">· ${esc(this.provenance(m))}</span>`}</span>`;
     const src = source(m.intent.evidence[0]);
     const srcHtml = src ? `<span class="src">· ${esc(src)}</span>` : '';
     let say: string;
@@ -204,7 +229,7 @@ export class Capsule {
       say = `${this.intentHtml(m)}<span class="muted">· ${esc(tn('passages.one', 'passages.many', v.highlights.length))}</span>${srcHtml}`;
     }
     const key = v.mode === 'act' || v.mode === 'suggest' ? '<kbd>⌥↵</kbd>' : '';
-    return `${glyph}<span class="say">${say}</span>${key}`;
+    return `<span class="say">${say}</span>${key}`;
   }
 
   private slipHtml(m: CapsuleModel): string {
@@ -216,13 +241,13 @@ export class Capsule {
       const rows = v.suggestions.map((s, n) => {
         const { verb, obj, code } = split(s);
         const label = code ? `<span class="code">${esc(obj)}</span>` : markHits(obj, m.intent.terms);
-        return `<li><button class="sug" data-act="run" data-i="${n}">${verb ? `<span class="v">${esc(verb)}</span>` : ''}<span class="l">${label}</span><kbd>⌥${n + 1}</kbd></button></li>`;
+        return `<li><button class="sug" data-act="run" data-i="${n}">${verb ? `<span class="v">${esc(verb)}</span>` : ''}<span class="l">${label}</span><kbd><span class="alt">⌥</span>${n + 1}</kbd></button></li>`;
       });
       parts.push(`<ul class="sugs">${rows.join('')}</ul>`);
     }
 
     if (asking && v.askChoices.length) {
-      const choices = v.askChoices.map((c, n) => `<button class="choice" data-choice="${esc(c)}" title="${esc(c)}"><span class="l">${esc(c)}</span><kbd>⌥${n + 1}</kbd></button>`).join('');
+      const choices = v.askChoices.map((c, n) => `<button class="choice" data-choice="${esc(c)}" title="${esc(c)}"><span class="l">${esc(c)}</span><kbd><span class="alt">⌥</span>${n + 1}</kbd></button>`).join('');
       parts.push(`<div class="choices">${choices}</div>`);
     }
 

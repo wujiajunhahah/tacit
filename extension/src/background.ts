@@ -6,12 +6,15 @@ import {
   LocalEngine,
   calibrate,
   domainOf,
+  authHeader,
   forgetKey,
   inferIntent,
+  provesToken,
   sameDocument,
   searchQueryOf,
   type Arrival,
   type DecisionRequest,
+  type ConnectResponse,
   type DecisionResponse,
   type ForgottenResponse,
   type HealthResponse,
@@ -43,11 +46,12 @@ const TRAIL_KEY = 'tacit:trail';
 const LEDGER_KEY = 'tacit:ledger';
 const TABS_KEY = 'tacit:tabs';
 const FORGOT_KEY = 'tacit:forgotAt';
+const TOKEN_KEY = 'tacit:token';
 const MAX_TRAIL = 300;
 const MAX_LEDGER = 200;
 const MAX_QUEUE = 500;
 
-const state = { loaded: false, trail: [] as Visit[], ledger: [] as LedgerEntry[], tabs: {} as Record<string, TabState>, forgotAt: 0 };
+const state = { loaded: false, trail: [] as Visit[], ledger: [] as LedgerEntry[], tabs: {} as Record<string, TabState>, forgotAt: 0, token: '' };
 const pages = new Map<string, PageModel>();
 const acked = new Set<string>();
 const queue: IngestEvent[] = [];
@@ -65,7 +69,8 @@ const WEB = typeof globalThis !== 'undefined' && '__TACIT_WEB__' in globalThis;
 export function load(): Promise<void> {
   if (state.loaded) return Promise.resolve();
   loading ??= (async () => {
-    const [l, s] = await Promise.all([chrome.storage.local.get([TRAIL_KEY, LEDGER_KEY, FORGOT_KEY]), chrome.storage.session.get(TABS_KEY)]);
+    const [l, s] = await Promise.all([chrome.storage.local.get([TRAIL_KEY, LEDGER_KEY, FORGOT_KEY, TOKEN_KEY]), chrome.storage.session.get(TABS_KEY)]);
+    state.token = (l[TOKEN_KEY] as string | undefined) ?? '';
     state.trail = (l[TRAIL_KEY] as Visit[] | undefined) ?? [];
     state.ledger = (l[LEDGER_KEY] as LedgerEntry[] | undefined) ?? [];
     state.forgotAt = (l[FORGOT_KEY] as number | undefined) ?? 0;
@@ -170,7 +175,7 @@ async function flush(): Promise<void> {
       try {
         const res = await fetch(`${HARNESS_ORIGIN}/v1/ingest`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeader(state.token) },
           body: JSON.stringify({ events: batch }),
           signal: AbortSignal.timeout(4000),
         });
@@ -212,7 +217,7 @@ async function forget(latest: number): Promise<void> {
   if (forgetting || latest <= state.forgotAt) return;
   forgetting = true;
   try {
-    const res = await fetch(`${HARNESS_ORIGIN}/v1/forgotten?since=${state.forgotAt}`, { signal: AbortSignal.timeout(2000) });
+    const res = await fetch(`${HARNESS_ORIGIN}/v1/forgotten?since=${state.forgotAt}`, { headers: authHeader(state.token), signal: AbortSignal.timeout(2000) });
     if (!res.ok) return;
     const f = (await res.json()) as ForgottenResponse;
     const gone = await forgottenTest(f, [...state.trail.map((v) => v.url), ...state.ledger.map((e) => e.url), ...queue.map((ev) => stampOf(ev).url)]);
@@ -231,19 +236,26 @@ async function forget(latest: number): Promise<void> {
   }
 }
 
+/**
+ * Connected only to the user's own harness: it must first prove it holds the token (without being sent it), so a
+ * program that took the port while the harness was down gets neither the token nor any browsing.
+ */
 async function harnessStatus(force = false): Promise<HarnessStatus> {
-  if (WEB) return { connected: false, engine: 'local' };
+  if (WEB) return { connected: false, paired: false, engine: 'local' };
   if (!force && health && Date.now() - health.at < 15_000) return health.status;
-  let status: HarnessStatus = { connected: false, engine: 'local' };
-  try {
-    const res = await fetch(`${HARNESS_ORIGIN}/v1/health`, { signal: AbortSignal.timeout(700) });
-    if (res.ok) {
-      const j = (await res.json()) as HealthResponse;
-      status = { connected: true, engine: j.engine, model: j.model };
-      if (j.forgetAt) void forget(j.forgetAt);
+  await load();
+  let status: HarnessStatus = { connected: false, paired: !!state.token, engine: 'local' };
+  if (state.token && (await provesToken(HARNESS_ORIGIN, state.token, 700))) {
+    try {
+      const res = await fetch(`${HARNESS_ORIGIN}/v1/health`, { headers: authHeader(state.token), signal: AbortSignal.timeout(700) });
+      const j = res.ok ? ((await res.json()) as HealthResponse) : null;
+      if (j?.authorized) {
+        status = { connected: true, paired: true, engine: j.engine ?? 'local', model: j.model, label: j.decisions?.chain[0]?.label };
+        if (j.forgetAt) void forget(j.forgetAt);
+      }
+    } catch {
+      // Gone between the proof and the call; the next check tries again.
     }
-  } catch {
-    // Harness not running; the extension works on its own.
   }
   health = { at: Date.now(), status };
   if (status.connected && queue.length) scheduleFlush(50);
@@ -255,7 +267,7 @@ async function decide(req: DecisionRequest): Promise<DecisionResponse> {
     try {
       const res = await fetch(`${HARNESS_ORIGIN}/v1/decide`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader(state.token) },
         body: JSON.stringify(req),
         signal: AbortSignal.timeout(4000),
       });
@@ -368,6 +380,26 @@ export async function handle(msg: ToBackground, sender: chrome.runtime.MessageSe
     case 'ledger':
       upsertLedger(msg.entry);
       return { ok: true };
+    case 'pair': {
+      // Kept only if the harness proves it holds this very token.
+      const ok = typeof msg.token === 'string' && (await provesToken(HARNESS_ORIGIN, msg.token));
+      if (ok) {
+        state.token = msg.token;
+        health = null;
+        await chrome.storage.local.set({ [TOKEN_KEY]: msg.token });
+      }
+      return { ok };
+    }
+    case 'open-dashboard':
+      // The fragment never reaches a server; the dashboard keeps the token in its own origin.
+      await chrome.tabs.create({ url: state.token ? `${HARNESS_ORIGIN}/#token=${state.token}` : `${HARNESS_ORIGIN}/` });
+      return { ok: true };
+    case 'connect-command': {
+      if (!(await harnessStatus(true)).connected) return { command: null };
+      const res = await fetch(`${HARNESS_ORIGIN}/v1/connect`, { headers: authHeader(state.token), signal: AbortSignal.timeout(800) }).catch(() => null);
+      const j = res?.ok ? ((await res.json()) as ConnectResponse) : null;
+      return { command: j?.claudeCommand ?? null };
+    }
     case 'status': {
       const [settings, harness] = await Promise.all([loadSettings(), harnessStatus(true)]);
       return { harness, settings, visits: state.trail.length, queued: queue.length, currentTitle: state.trail.at(-1)?.title } satisfies StatusReply;

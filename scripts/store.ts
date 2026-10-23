@@ -6,10 +6,10 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
-import { HARNESS_ORIGIN, HARNESS_PORT, type CurrentContextResponse } from '../core';
+import { HARNESS_ORIGIN, HARNESS_PORT, authHeader, type CurrentContextResponse } from '../core';
 import { startHarness } from '../daemon/server';
 import { startDemo } from '../demo/serve';
-import { capsuleText, launch, LOCAL_ONLY, openSlip, ROOT, searchThenOpen as openFrom } from './browser';
+import { capsuleText, launch, LOCAL_ONLY, openSlip, pairWith, ROOT, searchThenOpen as openFrom } from './browser';
 
 const OUT = join(ROOT, 'docs/store');
 /** The browser window inside each screenshot. Pages are captured at 2x. */
@@ -100,10 +100,11 @@ const harness = startHarness({ port: HARNESS_PORT, home, env: { TACIT_HOME: home
 const demo = startDemo({ port: 0 });
 const site = demo.url.replace(/\/$/, '');
 const b = await launch(FRAME);
+await pairWith(b, harness.token);
 const plain = await chromium.launch({ channel: 'chromium', args: LOCAL_ONLY });
 
 async function currentUrl(): Promise<string> {
-  const res = (await (await fetch(`${HARNESS_ORIGIN}/v1/context/current`)).json()) as CurrentContextResponse;
+  const res = (await (await fetch(`${HARNESS_ORIGIN}/v1/context/current`, { headers: authHeader(harness.token) })).json()) as CurrentContextResponse;
   return res.visit?.url ?? '';
 }
 

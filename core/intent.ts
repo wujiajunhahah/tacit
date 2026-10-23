@@ -42,6 +42,17 @@ const UNEXPLAINED_SCORE = 1.5;
 
 export const NO_INTENT: Intent = { text: '', terms: {}, confidence: 0, source: 'none', evidence: [], candidates: [] };
 
+/** How long a page with no title of its own may last and still be only a redirect on the way somewhere. */
+const HOP_MS = 3000;
+
+/**
+ * A redirect on the way somewhere else (a search engine's click-through, a link shortener): no title of its own,
+ * gone in moments. Its arrival still counts as evidence; it is never shown as a page you were on.
+ */
+export function isHop(v: Pick<Visit, 'url' | 'title' | 'dwellMs' | 'endedAt'>): boolean {
+  return v.endedAt !== undefined && v.dwellMs < HOP_MS && (!v.title || v.title === v.url);
+}
+
 export function collectEvidence(trail: Visit[], opts: IntentOptions = {}): Evidence[] {
   const now = opts.now ?? Date.now();
   const halfLife = opts.halfLifeMs ?? 15 * 60_000;

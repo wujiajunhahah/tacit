@@ -5,6 +5,7 @@ import {
   buildPacket,
   inferIntent,
   rankBlocks,
+  siteTerms,
   type Block,
   type Intent,
   type PageDetailResponse,
@@ -52,7 +53,7 @@ export function pageDetail(store: Store, url: string): PageDetailResponse | null
     summary,
     reads: readPassages(visits, page.blocks),
     intent,
-    packet: buildPacket({ page, intent, visit: visits[0], ranked: rankBlocks(page.blocks, intent) }),
+    packet: buildPacket({ page, intent, visit: visits[0], ranked: rankBlocks(page.blocks, intent, siteTerms(page.domain, page.title)) }),
     actions: store.ledgerFor(url, DETAIL_ACTIONS),
   };
 }

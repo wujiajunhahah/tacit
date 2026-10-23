@@ -85,7 +85,7 @@ async function sweep(page: Page): Promise<Map<string, string | null>> {
   await page.waitForTimeout(500);
   const md = await packet(page);
   const passage = (await para.innerText()).slice(0, 40);
-  check('attention: the passage under the pointer is in the packet', md.includes('## Passages I read closely') && md.includes(passage), passage);
+  check('attention: the passage under the pointer is in the packet', md.split('\n').some((l) => l.startsWith('- read closely') && l.includes(passage)), passage);
   await context.close();
 }
 

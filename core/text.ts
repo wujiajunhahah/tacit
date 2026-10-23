@@ -65,11 +65,31 @@ export function tokenize(text: string): string[] {
   return tokens;
 }
 
+/** A title, then a separator, then the site's name: "Human–computer interaction - Wikipedia". */
+const TITLE_AND_SITE = /^(.{8,}?)\s+(?:[-|–—·:]|::)\s+([^-|–—·]{1,32})$/;
+
 /** "Human–computer interaction - Wikipedia" → "Human–computer interaction". */
 export function cleanTitle(title: string): string {
   const flat = title.replace(/\s+/g, ' ').trim();
-  const m = flat.match(/^(.{8,}?)\s+(?:[-|–—·:]|::)\s+([^-|–—·]{1,32})$/);
+  const m = flat.match(TITLE_AND_SITE);
   return m ? m[1]!.trim() : flat;
+}
+
+/** Parts of an address that name no site. */
+const ADDRESS_WORDS = new Set(['www', 'com', 'net', 'org', 'edu', 'gov', 'app', 'dev', 'info', 'biz', 'mobile', 'localhost']);
+
+/**
+ * The words that name the site itself, from its address and the end of its titles: hkust on hkust.edu.hk, wikipedia
+ * on Wikipedia. On that site they say nothing about which page or passage you want, since all of it is the site.
+ */
+export function siteTerms(domain: string, title = ''): Set<string> {
+  const out = new Set<string>();
+  for (const label of domain.toLowerCase().split('.')) {
+    if (label.length > 2 && !ADDRESS_WORDS.has(label) && !/^\d+$/.test(label)) for (const t of tokenize(label)) out.add(t);
+  }
+  const site = title.replace(/\s+/g, ' ').trim().match(TITLE_AND_SITE)?.[2];
+  if (site) for (const t of tokenize(site)) out.add(t);
+  return out;
 }
 
 /** Collapse whitespace and cut to a length, ending on a word boundary when possible. */

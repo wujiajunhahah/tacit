@@ -1,5 +1,6 @@
 // The harness daemon: a loopback-only HTTP API over the local context ledger, plus the dashboard.
 
+import { watch } from 'node:fs';
 import { dirname } from 'node:path';
 import {
   HARNESS_PORT,
@@ -8,20 +9,32 @@ import {
   type CalibrationResponse,
   type DecideResponse,
   type DeleteResponse,
+  harnessProof,
   type HealthResponse,
   type IngestEvent,
   type IngestResponse,
+  type BriefResponse,
+  type LastDecision,
+  type TacitEvent,
 } from '../core';
+import { carries, harnessToken } from './auth';
 import { connectInfo } from './connect';
 import { Store, tacitHome, type Env } from './db';
-import { chooseEngine, type EngineChoice } from './engine';
+import { chainText, chooseEngine, MODELS_FILE, warmer, type EngineChoice } from './engine';
+import { KEYS_FILE } from './keys';
+import { modelNetwork } from './network';
 import { CONFIRM_DELETE_ALL, CONFIRM_HEADER, corsHeaders, deleteAllowed, hostAllowed, originAllowed } from './guard';
 import * as library from './library';
 import * as queries from './queries';
-import { DecideSchema, IngestEnvelopeSchema, IngestEventSchema, PagesQuerySchema, firstIssue } from './schemas';
+import { BriefSchema, DecideSchema, IngestEnvelopeSchema, IngestEventSchema, PagesQuerySchema, firstIssue } from './schemas';
+import { brief } from './brief';
+import { renderPair } from './pair';
 import { renderUi } from './ui';
 
 export const MAX_BODY_BYTES = 2 * 1024 * 1024;
+/** Event streams: what one replay sends at most, and how often an idle stream says it is still there. */
+const REPLAY = 1000;
+const HEARTBEAT_MS = 20_000;
 /** Calibration looks at this many of the newest actions. */
 const CALIBRATION_WINDOW = 5000;
 
@@ -29,12 +42,17 @@ export interface HarnessOptions {
   port?: number;
   home?: string;
   env?: Env;
+  /** No log lines when models.json or a key changes (tests). */
+  quiet?: boolean;
 }
 
 export interface Harness {
   url: string;
   port: number;
+  /** What clients send as `Authorization: Bearer`; also in `<home>/token`. */
+  token: string;
   engine: EngineChoice['name'];
+  decisions: EngineChoice['decisions'];
   dbPath: string;
   stop(): Promise<void>;
 }
@@ -42,18 +60,24 @@ export interface Harness {
 interface Ctx {
   store: Store;
   engine: EngineChoice;
+  /** The user is browsing: keep the way to the model hosts open. */
+  warm: () => void;
+  recent: { decision?: LastDecision };
   home: string;
   port: number;
+  token: string;
 }
 
 type Method = 'GET' | 'POST' | 'DELETE';
 type Handler = (req: Request, url: URL, ctx: Ctx) => Response | Promise<Response>;
 
 const ROUTES: Record<string, Partial<Record<Method, Handler>>> = {
-  '/': { GET: () => ui() },
-  '/v1/health': { GET: (_req, _url, ctx) => json(health(ctx)) },
+  '/': { GET: () => html(renderUi) },
+  '/pair': { GET: () => html(async (nonce) => renderPair(nonce)) },
+  '/v1/health': { GET: health },
   '/v1/ingest': { POST: ingest },
   '/v1/decide': { POST: decide },
+  '/v1/brief': { POST: briefNote },
   '/v1/context/current': {
     GET: (_req, url, ctx) =>
       json(queries.currentContext(ctx.store, { maxPassages: intParam(url, 'max_passages', 1, 10) })),
@@ -67,6 +91,7 @@ const ROUTES: Record<string, Partial<Record<Method, Handler>>> = {
   '/v1/page': { GET: page, DELETE: deletePage },
   '/v1/all': { DELETE: deleteAll },
   '/v1/stats': { GET: (_req, _url, ctx) => json(ctx.store.stats()) },
+  '/v1/events': { GET: events },
   '/v1/forgotten': { GET: (_req, url, ctx) => json(ctx.store.forgottenSince(intParam(url, 'since', 0, Number.MAX_SAFE_INTEGER) ?? 0)) },
   '/v1/connect': { GET: (_req, _url, ctx) => json(connectInfo(ctx.engine, ctx.home)) },
   '/v1/calibration': {
@@ -78,27 +103,56 @@ const ROUTES: Record<string, Partial<Record<Method, Handler>>> = {
 export function startHarness(opts: HarnessOptions = {}): Harness {
   const env = opts.env ?? process.env;
   const store = new Store({ home: opts.home ?? tacitHome(env) });
-  const engine = chooseEngine(env);
   const home = dirname(store.path);
+  // Model requests survive a laptop's sleep and a changing network (daemon/network.ts).
+  const network = modelNetwork(() => engine.remote);
+  let engine = chooseEngine(env, home, network.fetch);
+  const recent: Ctx['recent'] = {};
+  const warmUp = warmer(network.fetch);
+  const warm = () => warmUp(engine.remote);
+  const token = harnessToken(home);
   let server: ReturnType<typeof Bun.serve>;
   try {
     server = Bun.serve({
       hostname: '127.0.0.1',
       port: opts.port ?? (Number(env.TACIT_PORT) || HARNESS_PORT),
       maxRequestBodySize: MAX_BODY_BYTES,
-      fetch: (req, srv) => handle(req, { store, engine, home, port: srv.port ?? 0 }),
+      // Event streams stay open between events; a heartbeat comes every HEARTBEAT_MS.
+      idleTimeout: 60,
+      fetch: (req, srv) => handle(req, { store, engine, warm, recent, home, port: srv.port ?? 0, token }),
     });
   } catch (err) {
     store.close();
     throw err;
   }
+  warm();
+  // A key or models.json changed: the next decision uses it, with no restart.
+  let reload: ReturnType<typeof setTimeout> | undefined;
+  const watcher = watch(home, (_event, file) => {
+    if (file !== MODELS_FILE && file !== KEYS_FILE) return;
+    clearTimeout(reload);
+    reload = setTimeout(() => {
+      engine = chooseEngine(env, home, network.fetch);
+      warm();
+      if (!opts.quiet) logDecisions(engine);
+    }, 150);
+  });
   const port = server.port ?? 0;
   return {
     url: `http://127.0.0.1:${port}`,
     port,
-    engine: engine.name,
+    token,
+    get engine() {
+      return engine.name;
+    },
+    get decisions() {
+      return engine.decisions;
+    },
     dbPath: store.path,
     async stop() {
+      network.stop();
+      watcher.close();
+      clearTimeout(reload);
       await server.stop(true);
       store.close();
     },
@@ -118,7 +172,9 @@ async function handle(req: Request, ctx: Ctx): Promise<Response> {
     const url = new URL(req.url);
     const route = ROUTES[url.pathname];
     const run = route?.[req.method as Method];
-    if (!route) res = problem(404, 'not found');
+    // The ledger is the user's: every API call but the health check carries the token.
+    if (url.pathname.startsWith('/v1/') && url.pathname !== '/v1/health' && !carries(req, ctx.token)) res = problem(401, 'this harness needs its token: run `bun run pair`');
+    else if (!route) res = problem(404, 'not found');
     else if (!run) {
       const allowed = Object.keys(route).join(', ');
       res = problem(405, `use ${allowed}`, { Allow: `${allowed}, OPTIONS` });
@@ -131,18 +187,14 @@ async function handle(req: Request, ctx: Ctx): Promise<Response> {
   return res;
 }
 
-function health(ctx: Ctx): HealthResponse {
+/** Anyone may ask whether this is the user's harness (send ?challenge=); only the token reads the rest. */
+async function health(req: Request, url: URL, ctx: Ctx): Promise<Response> {
+  const challenge = url.searchParams.get('challenge');
+  const proof = challenge && /^[0-9a-f]{32,128}$/.test(challenge) ? await harnessProof(ctx.token, challenge) : undefined;
+  const base = { ok: true as const, name: 'tacit-harness' as const, version: HARNESS_VERSION, proof };
+  if (!carries(req, ctx.token)) return json({ ...base, authorized: false } satisfies HealthResponse);
   const { visits, pages } = ctx.store.counts();
-  return {
-    ok: true,
-    name: 'tacit-harness',
-    version: HARNESS_VERSION,
-    engine: ctx.engine.name,
-    model: ctx.engine.model,
-    visits,
-    pages,
-    forgetAt: ctx.store.forgetAt(),
-  };
+  return json({ ...base, authorized: true, engine: ctx.engine.name, model: ctx.engine.model, decisions: ctx.engine.decisions, lastDecision: ctx.recent.decision, visits, pages, forgetAt: ctx.store.forgetAt() } satisfies HealthResponse);
 }
 
 async function ingest(req: Request, _url: URL, ctx: Ctx): Promise<Response> {
@@ -162,8 +214,50 @@ async function ingest(req: Request, _url: URL, ctx: Ctx): Promise<Response> {
   if (errors.length) console.error(`[tacit] rejected ${errors.length} event(s); first: ${errors[0]}`);
 
   const res: IngestResponse & { rejected?: number; errors?: string[] } = { ok: true, accepted: ctx.store.ingest(events) };
+  if (res.accepted) ctx.warm();
   if (errors.length) Object.assign(res, { rejected: errors.length, errors: errors.slice(0, 5) });
   return json(res);
+}
+
+/** Server-sent events: what was missed since `Last-Event-ID` (or ?since=), then everything as it happens. */
+function events(req: Request, url: URL, ctx: Ctx): Response {
+  const asked = Number(req.headers.get('last-event-id') ?? url.searchParams.get('since') ?? Number.NaN);
+  const since = Number.isFinite(asked) ? asked : ctx.store.lastEventId();
+  const enc = new TextEncoder();
+  let stop = () => {};
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const write = (s: string) => {
+        try {
+          controller.enqueue(enc.encode(s));
+        } catch {
+          stop();
+        }
+      };
+      const send = (e: TacitEvent) => write(`id: ${e.id}\nevent: ${e.kind}\ndata: ${JSON.stringify(e)}\n\n`);
+      write(': tacit events\n\n');
+      for (const e of ctx.store.eventsSince(since, REPLAY)) send(e);
+      const unfollow = ctx.store.follow(send);
+      const beat = setInterval(() => write(': still here\n\n'), HEARTBEAT_MS);
+      stop = () => {
+        unfollow();
+        clearInterval(beat);
+      };
+    },
+    cancel: () => stop(),
+  });
+  return new Response(stream, {
+    headers: { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
+  });
+}
+
+/** A note about the user's screen for an agent's next prompt, only when that prompt needs one (daemon/brief.ts). */
+async function briefNote(req: Request, _url: URL, ctx: Ctx): Promise<Response> {
+  const body = await readJson(req);
+  if (!body.ok) return problem(400, 'body must be JSON');
+  const parsed = BriefSchema.safeParse(body.value);
+  if (!parsed.success) return problem(400, firstIssue(parsed.error));
+  return json(await brief(ctx.store, { prompt: parsed.data.prompt, engine: ctx.engine.engine }) satisfies BriefResponse);
 }
 
 async function decide(req: Request, _url: URL, ctx: Ctx): Promise<Response> {
@@ -172,6 +266,7 @@ async function decide(req: Request, _url: URL, ctx: Ctx): Promise<Response> {
   const parsed = DecideSchema.safeParse(body.value);
   if (!parsed.success) return problem(400, firstIssue(parsed.error));
   const res: DecideResponse = await ctx.engine.engine.decide(parsed.data);
+  ctx.recent.decision = { at: Date.now(), engine: res.engine, model: res.model, latencyMs: Math.round(res.latencyMs), fellBack: !!res.fallbackReason, escalated: !!res.escalated };
   return json(res);
 }
 
@@ -203,9 +298,10 @@ function deleteAll(req: Request, _url: URL, ctx: Ctx): Response {
   return json({ ok: true, deleted: ctx.store.deleteAll() } satisfies DeleteResponse);
 }
 
-async function ui(): Promise<Response> {
+/** The dashboard and the pairing page: static HTML under a nonce CSP. Neither holds data; both fetch it with the token. */
+async function html(render: (nonce: string) => Promise<string>): Promise<Response> {
   const nonce = crypto.randomUUID().replaceAll('-', '');
-  return new Response(await renderUi(nonce), {
+  return new Response(await render(nonce), {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       'Content-Security-Policy': [
@@ -250,6 +346,11 @@ function json(data: unknown, status = 200, headers: Record<string, string> = {})
   });
 }
 
+function logDecisions(e: { decisions: EngineChoice['decisions'] }): void {
+  console.log(`Decisions: ${chainText(e.decisions)}`);
+  if (e.decisions.problem) console.warn(`${e.decisions.problem}. Until it is fixed, the code engine decides, on this machine.`);
+}
+
 function problem(status: number, error: string, headers?: Record<string, string>): Response {
   return json({ ok: false, error }, status, headers);
 }
@@ -257,7 +358,8 @@ function problem(status: number, error: string, headers?: Record<string, string>
 if (import.meta.main) {
   try {
     const harness = startHarness();
-    console.log(`Tacit harness listening on ${harness.url} · engine: ${harness.engine} · ledger: ${harness.dbPath}`);
+    console.log(`Tacit harness listening on ${harness.url} · ledger: ${harness.dbPath}`);
+    logDecisions(harness);
     const shutdown = () => void harness.stop().finally(() => process.exit(0));
     process.on('SIGINT', shutdown);
     process.on('SIGTERM', shutdown);

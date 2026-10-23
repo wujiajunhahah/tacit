@@ -29,17 +29,88 @@ export interface IngestResponse {
   accepted: number;
 }
 
+/** One engine, in the order the harness asks them. */
+export interface EngineInfo {
+  /** "jev", "openrouter", "ollama", a name from models.json, or "local", the code engine. */
+  id: string;
+  label: string;
+  model?: string;
+  /** Whether a request to it stays on this machine. */
+  here: boolean;
+  /** Where requests go, when they leave this machine. */
+  host?: string;
+}
+
+/** Who decides, and whether a decision can leave this machine. */
+export interface DecisionsInfo {
+  /** "local": only engines on this machine are asked. */
+  privacy: 'cloud' | 'local';
+  /** Asked in order: the next when one fails or is slow. The code engine always ends it. */
+  chain: EngineInfo[];
+  /** Asked again about a choice the first answer was unsure of. */
+  escalate?: EngineInfo;
+  /** Configured but not asked: no key for it, or it is off this machine and privacy is local. */
+  skipped: { id: string; reason: 'no-key' | 'privacy' }[];
+  /** models.json could not be used, so the harness decides on this machine until it is fixed. */
+  problem?: string;
+}
+
+export interface LastDecision {
+  at: number;
+  engine: string;
+  model?: string;
+  latencyMs: number;
+  /** A later engine answered because an earlier one failed or was slow. */
+  fellBack: boolean;
+  escalated: boolean;
+}
+
 export interface HealthResponse {
   ok: true;
   name: 'tacit-harness';
   version: string;
-  engine: 'jev' | 'local';
+  /** HMAC-SHA256(token, challenge) when asked with ?challenge=: proof that this is the user's own harness. */
+  proof?: string;
+  /** Whether the request carried the token. The fields below come only with it. */
+  authorized: boolean;
+  /** The first engine asked (DecisionsInfo has them all). */
+  engine?: string;
   model?: string;
-  visits: number;
-  pages: number;
+  decisions?: DecisionsInfo;
+  /** The latest decision since the harness started: who answered, and how fast. */
+  lastDecision?: LastDecision;
+  visits?: number;
+  pages?: number;
   /** When something was last deleted. A client that keeps its own copy of the trail asks /v1/forgotten. */
   forgetAt?: number;
 }
+
+/**
+ * GET /v1/events: what happens in the ledger, as server-sent events (`id`, `event: <kind>`, `data: <json>`), for
+ * other harnesses to follow. `Last-Event-ID` or `?since=` replays what was missed. A deletion never names its pages.
+ */
+export type TacitEvent = { id: number; at: number } & (
+  | {
+      kind: 'visit';
+      visit: {
+        id: string;
+        url: string;
+        title: string;
+        startedAt: number;
+        endedAt?: number;
+        arrival: Visit['arrival']['kind'];
+        searchQuery?: string;
+        /** What the user said they are after, if they did. */
+        stated?: string;
+        dwellMs: number;
+        reads: number;
+        selections: number;
+      };
+    }
+  | { kind: 'page'; page: { url: string; title: string; kind: PageKind; blocks: number } }
+  | { kind: 'action'; action: Pick<LedgerEntry, 'id' | 'kind' | 'state' | 'label' | 'url'> }
+  | { kind: 'forgotten'; all: boolean; pages: number }
+);
 
 /** GET /v1/forgotten?since=: what was deleted after `since`, so every copy of the trail forgets it. */
 export interface ForgottenResponse {
@@ -56,6 +127,8 @@ export interface CurrentContextResponse {
   page: PageModel | null;
   intent: Intent;
   packet: Packet | null;
+  /** When the extension last heard from the user on that visit: a tab left open for a day is not "now". */
+  activeAt?: number;
 }
 
 export interface TrailItem {
@@ -153,12 +226,38 @@ export interface StatsResponse {
   storage: { path: string; display: string; bytes: number };
 }
 
+/** POST /v1/brief: a short note about the user's screen for an agent, only when the request needs one. */
+export interface BriefRequest {
+  /** The request the agent is about to answer; without one, the note is given unasked. */
+  prompt?: string;
+}
+
+export interface BriefResponse {
+  inject: boolean;
+  /**
+   * pointing: the request points at the screen ("this page"); model: a decision model judged it relevant; asked: no
+   * request to judge; unrelated, stale (nothing open lately) and empty (nothing recorded) give no note.
+   */
+  reason: 'pointing' | 'model' | 'asked' | 'unrelated' | 'stale' | 'empty';
+  text?: string;
+  tokens?: number;
+  /** The model's yes-probability, when one was asked. */
+  p?: number;
+}
+
 /** GET /v1/connect */
 export interface ConnectResponse {
-  engine: 'jev' | 'local';
+  engine: string;
   model?: string;
+  decisions: DecisionsInfo;
+  /** Where who decides is set, with the home folder as ~. */
+  modelsFile: string;
   /** Absolute path of the MCP server on this machine. */
   mcpPath: string;
+  /** `tacit` with absolute paths, as any agent can run it. */
+  cli: string;
+  /** The line for an agent's instructions file (AGENTS.md, GEMINI.md…) that tells it when to run `cli`. */
+  agentLine: string;
   /** Adds Tacit to Claude Code for every project. */
   claudeCommand: string;
   /** The same server for Cursor, Claude Desktop and other MCP clients' config files. */

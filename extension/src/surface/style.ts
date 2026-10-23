@@ -22,6 +22,8 @@ export const CAPSULE_CSS = `
   font: 400 13px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
   color: var(--ink-soft);
   -webkit-font-smoothing: antialiased;
+  /* Lets the line change width to and from its natural size: the line grows into the slip instead of jumping. */
+  interpolate-size: allow-keywords;
   transition: opacity .14s ease-out, transform .14s ease-out;
 }
 .tc[data-ready] { opacity: 1; transform: translate(-50%, 0); }
@@ -41,6 +43,9 @@ button { all: unset; cursor: pointer; }
 button:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; border-radius: 4px; }
 kbd { display: none; font: 500 10.5px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink-3); }
 .tc[data-keys] kbd { display: inline; }
+/* Open, each row shows its digit: pressed alone, it picks the row. With ⌥ held, the closed line's keys show too. */
+.tc[data-open] .sug kbd, .tc[data-open] .choice kbd { display: inline; }
+.tc:not([data-keys]) kbd .alt { display: none; }
 .you { font: italic 400 15px/1.25 ui-serif, "New York", "Iowan Old Style", Georgia, serif; color: var(--ink); letter-spacing: 0; }
 /* Upright for CJK, which has no true italic; Latin words inside keep the serif of English intents. */
 .you[data-cjk] { font-style: normal; font-family: ui-serif, "New York", "Iowan Old Style", Georgia, "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", serif; }
@@ -65,10 +70,21 @@ u { text-decoration: underline; text-decoration-thickness: 1px; text-underline-o
   border-radius: 6px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
   cursor: pointer;
+  transition: width .22s cubic-bezier(.2, .8, .2, 1), padding .22s cubic-bezier(.2, .8, .2, 1), border-radius .22s ease-out, background-color .22s ease-out;
 }
-.glyph { flex: none; width: 6px; height: 6px; transform: rotate(45deg); box-shadow: inset 0 0 0 1.1px var(--ink); }
-[data-mode="act"] .glyph { background: var(--ink); }
-[data-mode="suggest"] .glyph { background: linear-gradient(135deg, var(--ink) 50%, transparent 50%); }
+.lc { display: contents; }
+/* The glyph is ink: empty when Tacit only listens, half when it suggests, full when it would act. It fills in place. */
+.glyph { position: relative; flex: none; width: 6px; height: 6px; transform: rotate(45deg); box-shadow: inset 0 0 0 1.1px var(--ink); }
+.glyph::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--ink);
+  clip-path: polygon(0 0, 0 0, 0 0, 0 0);
+  transition: clip-path .26s cubic-bezier(.2, .8, .2, 1);
+}
+[data-mode="suggest"] .glyph::after { clip-path: polygon(0 0, 100% 0, 0 100%, 0 100%); }
+[data-mode="act"] .glyph::after { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
 .say { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; white-space: nowrap; overflow: hidden; }
 .say .obj { color: var(--ink); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .say .you { font-size: 14px; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -95,7 +111,7 @@ u { text-decoration: underline; text-decoration-thickness: 1px; text-underline-o
   transition: opacity .14s ease-out, transform .14s ease-out;
 }
 .tc[data-open] .slip { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
-.tc[data-open] .line { width: var(--open-w); max-width: none; background: var(--paper-solid); border-radius: 0 0 6px 6px; border-top-color: transparent; box-shadow: 0 1px 2px rgba(0, 0, 0, .06); }
+.tc[data-open] .line { width: var(--open-w); background: var(--paper-solid); border-radius: 0 0 6px 6px; border-top-color: transparent; box-shadow: 0 1px 2px rgba(0, 0, 0, .06); }
 .tc[data-open] .say { display: flex; }
 .tc[data-open][data-mode="ask"] .line, .tc[data-open][data-mode="quiet"] .line { padding: 0 13px 0 12px; justify-content: flex-start; }
 
@@ -121,5 +137,5 @@ pre { margin: 12px 0 0; max-height: 32vh; overflow: auto; white-space: pre-wrap;
 .act { flex: none; padding: 2px 4px; border-radius: 4px; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--ink-3); }
 .act:hover { color: var(--ink); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-@media (prefers-reduced-motion: reduce) { .tc, .slip { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .tc, .slip, .line, .glyph::after { transition: none; } }
 `;

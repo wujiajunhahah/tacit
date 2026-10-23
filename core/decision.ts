@@ -61,9 +61,12 @@ export interface DecisionResponse {
   model?: string;
   answers: Record<string, Answer>;
   latencyMs: number;
-  usage?: { input_tokens: number; output_tokens: number };
+  /** `cost` in US dollars, when the provider says (OpenRouter does). */
+  usage?: { input_tokens: number; output_tokens: number; cost?: number };
   /** Set when the primary engine failed and a backup answered. */
   fallbackReason?: string;
+  /** Set when a stronger model answered some unsure choices again, and was surer. */
+  escalated?: { engine: string; model?: string; questions: string[] };
 }
 
 export interface DecisionEngine {
@@ -73,6 +76,17 @@ export interface DecisionEngine {
 
 export class DecisionError extends Error {
   override name = 'DecisionError';
+}
+
+/**
+ * TypeSafe's choice confidence, for every engine: how far the top option stands above an even guess, 0..1.
+ * (p_max - 1/n) / (1 - 1/n), so 0.6 means the same certainty with three options or twelve.
+ */
+export function choiceConfidence(probabilities: Record<string, number>): number {
+  const ps = Object.values(probabilities);
+  if (ps.length < 2) return ps[0] ?? 0;
+  const even = 1 / ps.length;
+  return Math.min(1, Math.max(0, (Math.max(...ps) - even) / (1 - even)));
 }
 
 const NONE_OPTION = /^(none|other|nothing|none of these|something else)$/i;
@@ -87,13 +101,17 @@ function flatten(value: unknown): string {
   return '';
 }
 
-/** The query the local engine judges against: `state.focus`, then `state.intent`, then the whole state. */
+/**
+ * The query the local engine judges against: `state.focus`, then `state.intent`, then `state.user_intent` (what the
+ * extension sends), then the whole state.
+ */
 function queryOf(state: unknown): Record<string, number> {
   const s = (state && typeof state === 'object' ? state : {}) as Record<string, unknown>;
   const intent = s.intent as { terms?: Record<string, number>; text?: string } | string | undefined;
   if (typeof s.focus === 'string' && s.focus.trim()) return weightsOf(tokenize(s.focus));
   if (intent && typeof intent === 'object' && intent.terms && Object.keys(intent.terms).length) return intent.terms;
   if (typeof intent === 'string' && intent.trim()) return weightsOf(tokenize(intent));
+  if (typeof s.user_intent === 'string' && s.user_intent.trim()) return weightsOf(tokenize(s.user_intent));
   return weightsOf(tokenize(flatten(state)));
 }
 
@@ -113,14 +131,20 @@ function coverage(query: Record<string, number>, text: string): number {
   return hit / total;
 }
 
-function itemOf(state: unknown): string {
+/** What a yes/no question judges: the text its instructions carry (a post), then `state.item`, then the whole state. */
+function itemOf(q: Question, state: unknown): string {
+  if (q.instructions && typeof q.instructions === 'object' && !Array.isArray(q.instructions)) {
+    const i = q.instructions as Record<string, unknown>;
+    const text = [i.post, i.item, i.text].find((v): v is string => typeof v === 'string');
+    if (text) return text;
+  }
   const s = (state && typeof state === 'object' ? state : {}) as Record<string, unknown>;
   return typeof s.item === 'string' ? s.item : flatten(state);
 }
 
 /**
- * Offline reflexes. Relevance-shaped questions only: it reads `state.focus`
- * (or `state.intent`) as what the user wants and `state.item` as what is judged.
+ * Offline reflexes. Relevance-shaped questions only: it reads `state.focus` (or `state.intent`, `state.user_intent`)
+ * as what the user wants, and a question's own text (or `state.item`) as what is judged.
  */
 export class LocalEngine implements DecisionEngine {
   readonly name = 'local';
@@ -135,7 +159,7 @@ export class LocalEngine implements DecisionEngine {
 
   private answer(q: Question, query: Record<string, number>, state: unknown): Answer {
     if (q.type === 'choice') return this.choice(q, query);
-    const r = coverage(query, itemOf(state));
+    const r = coverage(query, itemOf(q, state));
     if (q.type === 'noul') return { type: 'noul', noul: 1 / (1 + Math.exp(-8 * (r - 0.3))) };
     return this.score(q, r);
   }
@@ -156,7 +180,7 @@ export class LocalEngine implements DecisionEngine {
     probs.forEach((p, i) => {
       if (p > (probs[best] ?? 0)) best = i;
     });
-    return { type: 'choice', choice: options[best] ?? '', probabilities, confidence: probs[best] ?? 0 };
+    return { type: 'choice', choice: options[best] ?? '', probabilities, confidence: choiceConfidence(probabilities) };
   }
 
   private score(q: ScoreQuestion, r: number): ScoreAnswer {
@@ -173,26 +197,5 @@ export class LocalEngine implements DecisionEngine {
     });
     const score = probs.reduce((acc, p, i) => acc + p * i, 0);
     return { type: 'score', score, legend, probabilities, confidence: Math.max(...probs) };
-  }
-}
-
-/** Try the primary engine; answer from the backup if it fails or times out. */
-export class FallbackEngine implements DecisionEngine {
-  constructor(
-    private readonly primary: DecisionEngine,
-    private readonly backup: DecisionEngine,
-  ) {}
-
-  get name(): string {
-    return this.primary.name;
-  }
-
-  async decide(req: DecisionRequest): Promise<DecisionResponse> {
-    try {
-      return await this.primary.decide(req);
-    } catch (err) {
-      const res = await this.backup.decide(req);
-      return { ...res, fallbackReason: err instanceof Error ? err.message : String(err) };
-    }
   }
 }

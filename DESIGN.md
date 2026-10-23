@@ -35,7 +35,7 @@ How Tacit decides what to show, when to act, and what to learn. [The manifesto](
 | Surface | The line, the slip, margin marks, folds. | `extension/src/surface` |
 | Feedback | `executed`, `undone`, `dismissed`. | `core/ledger.ts` |
 | Calibrate | Moves the act threshold with your undo rate (0.5–0.8); stops folding on sites where you keep unfolding. | `core/calibrate.ts` |
-| Port | The packet (⌥⇧C) and five read-only MCP tools hand agents the same context. | `core/packet.ts`, `daemon/mcp.ts` |
+| Port | A note before a prompt that builds on the screen, the `tacit` command, the packet (⌥⇧C) and five read-only MCP tools hand any agent the same context. | `core/brief.ts`, `core/packet.ts`, `daemon/cli.ts`, `daemon/hooks.ts`, `daemon/mcp.ts` |
 
 Every turn runs locally in milliseconds; Jev, when enabled, only refines it. Scaling up means more senses feeding the same ledger, not more UI.
 
@@ -47,7 +47,8 @@ Every decision in the loop has one owner. Prefer them in this order:
 |---|---|---|
 | **Code** | Anything that follows from rules, or runs on every event: privacy, extraction, attention, intent, the gate, calibration, the packet. | |
 | **Pre-written** | Everything people or models read: copy in both languages, the packet's structure, the questions put to a model, the setup prompt. | |
-| **A small typed model** (Jev, optional) | Judgments of meaning that must come back in under ~400 ms as a typed answer: a choice, a score, a yes or no. | The final say: its answer goes through the gate. |
+| **A small typed model** (Jev first, optional) | Judgments of meaning that must come back in about half a second as a typed answer: a choice, a score, a yes or no. | The final say: its answer goes through the gate. |
+| **A chat model** (optional) | A second opinion on a choice the small model is unsure of, as the same typed answer. | Anything else. It never writes. |
 | **A large model** (your own agent) | Open-ended work: explain, write, plan, act across tools. Only through the port, only when you ask. | Anything Tacit does on its own. |
 
 You own everything irreversible or outward-facing.
@@ -59,20 +60,36 @@ You own everything irreversible or outward-facing.
 | How did you get here? | Code: navigation events, the referrer | < 1 ms | "Unknown" |
 | What counts as reading? | Code; thresholds pre-written, the pointer's yours | every 500 ms | Nothing counts |
 | What are you after, and how sure? | Code: weights, decay, softmax | < 5 ms | Ask |
-| Which step next, and which posts matter? | Jev when on, in one batched call (a choice, up to 40 yes/no); else the local engine | 2.5 s cap; the local answer shows first | The local engine |
+| Which step next, and which posts matter? | The chain, in one batched call (a choice, up to 40 yes/no): Jev, then a second decision model if Jev fails or is still silent at 800 ms; an unsure choice (confidence < 0.55) goes to a chat model once | 3.2 s for all of it; the local answer shows first | The local view stays |
 | Which passages answer you? | Code: ranking against your words | < 5 ms | No marks |
 | Act, suggest or ask? | Code: combined confidence against the calibrated thresholds | < 1 ms | Ask |
 | What does the line say? | Pre-written copy, filled with your words and the page's | | |
 | What does the agent get? | Code fills a pre-written packet; nothing is paraphrased | < 10 ms | The outline |
+| Does this prompt need the screen? | Code, when its words point at the screen; otherwise, while you have been browsing in the last half hour, one yes or no from the chain | 2.5 s, before the prompt reaches the agent's model | No note |
 | Did it work? | You: keep, undo, unfold | | |
 | Should the bar move? | Code: calibration, explained in the dashboard | < 5 ms | The defaults |
-| What to do with the context? | Your agent's model, through MCP | the agent's | |
+| What to do with the context? | Your agent's model, through the note, `tacit` or MCP | the agent's | |
 
-Per visit: at most one model call, batched, and no large-model calls. Everything else is code you can read and test.
+Per decision: one batched call to the first model that answers, and for an unsure choice one more, to a chat model. No model writes anything. Everything else is code you can read and test.
 
-**Branches.** No harness: the extension works alone. No key, an error or a timeout: the local engine. Unsure: ask, with choices. An unfamiliar machine at setup: your agent, with a pre-written prompt, while a script does the deterministic steps.
+**Branches.** No harness: the extension works alone. No key: the code engine, on this machine. An error or a slow model: the next one, then the view already on screen. Kept local: only engines on this machine. A `models.json` that cannot be used: the code engine, and the dashboard says why. Unsure: ask, with choices. An unfamiliar machine at setup: your agent, with a pre-written prompt, while a script does the deterministic steps.
 
-**Adding a model.** A new small model answers the same three typed questions within the budget, keeps the local engine as its fallback, and sees no more than a decision request carries ([PRIVACY.md](PRIVACY.md) lists it). A large model never joins the loop; it stays behind the port.
+**Adding a model.** It answers the same three typed questions, through TypeSafe's System One API or, for a chat model, a strict JSON schema; fits the budget; and sees no more than a decision request carries ([PRIVACY.md](PRIVACY.md) lists it). `bun run models --try` checks it against Tacit's own questions before it joins the chain ([docs/models.md](docs/models.md)). A large model never joins the loop; it stays behind the port.
+
+## Jev in the loop
+
+Jev is a System One model: typed questions in, probabilities out, never text. TypeSafe's advice is to put it inside a loop for the fast, typed calls, routing and guardrails, and never to make it the loop's writer. That is Tacit's split: Jev judges, code gates, you decide, your agent writes.
+
+What Tacit takes from TypeSafe and OpenRouter, checked 2026-10-21:
+
+- **One API, many servers.** TypeSafe's `POST /v1/systemone` is also served by OpenRouter, and by Ollama, LM Studio, llama.cpp and vLLM for decision models. Tacit speaks it once; the base URL picks the server.
+- **A cascade with a verifier.** Cheap and fast first, and a stronger model only where the first is unsure, as in FrugalGPT and OpenRouter's Jev-verified cascade. Tacit's version: the second opinion is kept only if it is surer, and it never runs for yes/no batches, where forty posts are a cost, not a doubt.
+- **Hedged, not queued.** A model still silent at 800 ms has a bad moment; the next one starts alongside it and the first answer wins. Past 3.2 s the view on screen stays. A slow network never holds the page.
+- **One confidence.** `(p_max - 1/n) / (1 - 1/n)`, TypeSafe's definition, for every engine, so a threshold means the same with three options or twelve. A chat model's probabilities are its own say-so, so 15% of them is spread evenly first.
+- **Pinned.** TypeSafe advises pinning a model once thresholds are tuned; OpenRouter, re-tuning them per model. Tacit pins `typesafe/jev-1.14` and leaves the alias as an option.
+- **Private by request.** Through OpenRouter every request asks for zero data retention and no training on what it sends.
+
+Measured with `bun run models --try` on five questions with clear answers, through a proxy: Jev 1.14 10/10 at 488 ms median; Inception's mercury-decide 10/10 at 608 ms; Gemini 3.1 Flash Lite 10/10 at 1,187 ms for seventeen times Jev's price; the code engine 6/10; Together's tev1 0.8B, in Ollama on this machine, 5/10 at 166 ms. A local model has to earn its place, and `--try` says when one does not. Kept local, with a cloud key set and every outbound request sent through a proxy that records and refuses, five questions and five real sites made no attempt to leave the machine. Through the proxy a new TLS connection took 0.1 to 6 s, so the harness keeps one warm while you browse.
 
 ## Signals
 
@@ -122,6 +139,14 @@ Reading is scaled by how it was seen (pointer ×1.2, view ×0.5) and by time, `m
 - **Single-page apps.** A history change starts a new visit; moving into a private path stops Tacit at once.
 - **Forged consent.** The line lives in the page, and the page can draw a copy of it. Resuming, enabling Jev and connecting agents happen only in the popup or the dashboard.
 - **Deleting everywhere.** The extension keeps its own copy of the trail. A deletion in the dashboard leaves a tombstone, a hash of the address and a time: the harness refuses anything older, and the extension forgets the same the next time it checks in.
+- **"None of these."** On a Chinese article read for an English search, Jev said nothing on the page fit, and the line still offered the second best: a jump to the references. Now "none" means no step, the line says what you are after, and section numbers and footnote marks (`4.1`, `[12]`) are never candidates.
+- **Word boundaries in Chinese.** References, comments and "see also" were meant to rank low, but the pattern ended in `\b`, which knows only ASCII, so 参考文献 never matched, and a Chinese article's English citations outranked its text. The pattern now ends on "no letter or digit next", and those sections are never jump targets.
+- **A floor that knew less.** When every model failed, the harness's code engine answered and its answer replaced the extension's richer ranking. The extension now keeps what it showed.
+- **Cold connections.** The first decision after a quiet spell paid for a TLS handshake that took up to 6 s through a proxy. The harness opens the connection while you browse, with a bare `HEAD`, at most once a minute.
+- **Dead connections.** After a night of sleep, every decision timed out until the harness restarted: pooled connections had died while still looking open, and Bun drops one only after a request has waited out its timeout on it. A heartbeat now notices the sleep (a beat far later than asked); then, and after any timeout, requests go out on fresh connections for a minute while a few bare `HEAD`s at once drain the pool.
+- **Steps that go nowhere.** On a real university site the line offered "About" on the About page, and "Admissions", which the site's menu kept for itself; Tacit said it ran them and nothing moved, six times. A link to the current page, or one the page marks as current, is never a step now, and a click that does not start to leave the page within 0.7 s is followed by its address.
+- **Search pages.** Bing's results read as nothing: an empty read of a redirect replaced the real one, and a page with no body yet stopped the reader. Results are now read as results, a linked heading and the longest text in the box that holds that one result, which fits Bing, Google, Baidu and DuckDuckGo alike; an empty read never replaces a full one.
+- **A site's own name.** With "hkust" as the intent, every link on hkust.edu.hk matched it. Words that only name the site, from its address and its titles, are set aside on that site, so "erwin hkust" still finds Erwin there.
 
 ## Borrowing
 
@@ -152,8 +177,12 @@ New senses, new ports, the same loop and ledger.
 3. **Desktop.** A sense on the macOS accessibility API (focused window, selection, document URL) writes the same visits to the same ledger; the line moves to the menu bar.
 4. **OS.** The harness becomes the context layer every app and agent reads from, and apps become tools.
 
+**Every harness, now.** Tacit is a context engine, not another agent. Claude Code, Codex, Gemini CLI and OpenCode get a note before a prompt that builds on the screen, through their prompt hooks or a plugin; any agent with a shell runs `tacit`; Cursor, OpenClaw and every other MCP client read the tools; any program that holds the token follows `/v1/events` ([docs/agents.md](docs/agents.md)). When context is worth its tokens is its own design: [docs/using-context.md](docs/using-context.md). Next, in this order: an OpenClaw plugin that adds the note before a prompt is built (`before_prompt_build`); threads, so months of reading become what an agent reads first; and work that may take longer than a decision, such as distilling what you read this week into what an agent should remember, done only when you ask and only by a model you chose.
+
 ## Open questions
 
 - **The line at rest.** It sits over the bottom strip of the page. The next experiment: tuck it away while you read forward, and bring it back when you scroll up, reach the end, or it has something new to say.
 - **Bubbles.** Folding can hide what you would have wanted to see. Today Tacit never folds on a guess, every fold shows its count, and folding stops on sites where you keep unfolding. That may not be enough.
 - **Consensus.** An agent's guess about you must not quietly turn into something you agreed to. The ledger keeps "confirmed" and "executed" as separate states for that reason.
+- **Thresholds per model.** On the same question, Jev put 0.48 on the answer that mercury-decide put 0.88 on. Calibration moves one bar from your undos; it may need one per model.
+- **"None" as its own question.** TypeSafe warns that a "none of the above" option may not work well and suggests a separate yes/no. Tacit keeps it as an option for now, because the code engine needs it there; the trade is worth measuring on real pages.

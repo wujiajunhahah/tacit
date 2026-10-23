@@ -87,8 +87,8 @@ describe('reads as context', () => {
     });
     const intent = inferIntent([v], { now: NOW, currentTitle: page.title });
     const packet = buildPacket({ page, intent, visit: v, ranked: rankBlocks(page.blocks, intent), now: NOW });
-    expect(packet.markdown).toContain('## Passages I read closely');
-    expect(packet.markdown).toContain('(12 s) Below roughly 400 milliseconds');
+    expect(packet.markdown).toContain('## What I did on this page');
+    expect(packet.markdown).toContain('- read closely (12 s): Below roughly 400 milliseconds');
     expect(packet.markdown.split('Below roughly 400 milliseconds').length - 1).toBe(1);
   });
 });

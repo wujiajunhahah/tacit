@@ -4,16 +4,48 @@ import { Database } from 'bun:sqlite';
 import { createHash } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, sep } from 'node:path';
-import type { DeleteResponse, ForgottenResponse, IngestEvent, LedgerEntry, PageModel, PageSummary, StatsResponse, Visit } from '../core';
+import { join } from 'node:path';
+import { tokenize, type DeleteResponse, type ForgottenResponse, type IngestEvent, type LedgerEntry, type PageModel, type PageSummary, type StatsResponse, type TacitEvent, type Visit } from '../core';
+import { tilde } from './units';
 
 export type Env = Record<string, string | undefined>;
 
-export const MAX_VISITS = 5000;
+export const MAX_VISITS = 20_000;
 /** Deleted pages remembered, so a stale copy of their history cannot bring them back. */
 const MAX_FORGOTTEN = 1000;
 /** The tombstone that stands for "everything". */
 const ALL = '*';
+/** Events kept for replay; followers that fall further behind start again from now. */
+const MAX_EVENTS = 10_000;
+
+type EventBody = TacitEvent extends infer E ? (E extends unknown ? Omit<E, 'id' | 'at'> : never) : never;
+
+/** What a follower learns from an ingested item: enough to act on, without the page text or the trail. */
+function eventOf(ev: IngestEvent): EventBody[] {
+  if (ev.kind === 'ledger') {
+    const { id, kind, state, label, url } = ev.entry;
+    return [{ kind: 'action', action: { id, kind, state, label, url } }];
+  }
+  const v = ev.visit;
+  const visit: EventBody = {
+    kind: 'visit',
+    visit: {
+      id: v.id,
+      url: v.url,
+      title: v.title,
+      startedAt: v.startedAt,
+      endedAt: v.endedAt,
+      arrival: v.arrival.kind,
+      searchQuery: v.arrival.searchQuery,
+      stated: v.statedIntent?.text,
+      dwellMs: v.dwellMs,
+      reads: v.reads?.length ?? 0,
+      selections: v.selections.length,
+    },
+  };
+  if (ev.kind === 'visit') return [visit];
+  return [{ kind: 'page', page: { url: ev.page.url, title: ev.page.title, kind: ev.page.kind, blocks: ev.page.blocks.length } }, visit];
+}
 
 /** Same as core's forgetKey, synchronously: the hash a deleted page is remembered by. */
 export function forgetKeySync(url: string): string {
@@ -24,18 +56,46 @@ export function tacitHome(env: Env = process.env): string {
   return env.TACIT_HOME || join(homedir(), '.tacit');
 }
 
-/** What search needs from a page without parsing its model. */
-export interface SearchablePage {
+/** A full-text hit: the page, how well it matched (higher is better), and when it was last seen. */
+export interface PageHit {
   url: string;
   title: string;
   domain: string;
-  text: string;
   lastSeen: number;
+  score: number;
 }
+
+/** Title weighs more than the body, as a reader skims titles first. */
+const TITLE_WEIGHT = 3;
+/** The index holds Tacit's own tokens, so Chinese words and English stems match the way intent does. */
+const tokens = (s: string) => tokenize(s).join(' ');
 
 export interface StoreOptions {
   home?: string;
   maxVisits?: number;
+  /**
+   * Read, and change nothing on disk: for the command line, which agents such as Codex run in a sandbox that may not
+   * write to the ledger's folder. The ledger must already exist at the current schema; the harness makes both.
+   */
+  readonly?: boolean;
+}
+
+const SCHEMA_VERSION = 2;
+
+/**
+ * A reader that may not write cannot create the files WAL mode reads through, and SQLite removes them when the last
+ * writer closes. So with the harness stopped, the ledger opens as an immutable file, which it then is.
+ */
+function openReadonly(path: string): Database {
+  const db = new Database(path, { readonly: true, strict: true });
+  try {
+    // SQLite opens on first use, so only a query tells.
+    db.query('PRAGMA schema_version').get();
+    return db;
+  } catch {
+    db.close();
+    return new Database(`file:${path.replace(/[%?#]/g, encodeURIComponent)}?immutable=1`, { readonly: true, strict: true });
+  }
 }
 
 const SCHEMA = `
@@ -85,7 +145,9 @@ export interface SummaryQuery {
   urls?: string[];
 }
 
-const SUMMARY_WHERE = `($site = '' OR p.domain = $site) AND ($urls IS NULL OR p.url IN (SELECT value FROM json_each($urls)))`;
+// A page with no text and no title of its own (a redirect on the way somewhere) is not one you read.
+const SUMMARY_WHERE = `($site = '' OR p.domain = $site) AND ($urls IS NULL OR p.url IN (SELECT value FROM json_each($urls)))
+  AND (p.text != '' OR p.title != p.url)`;
 
 const SUMMARY_SELECT = `
 WITH v AS (
@@ -119,30 +181,107 @@ export class Store {
   private readonly maxVisits: number;
   /** Tombstones: page key (or ALL) → when it was deleted. */
   private forgotten = new Map<string, number>();
+  private readonly followers = new Set<(e: TacitEvent) => void>();
 
   constructor(opts: StoreOptions = {}) {
     const home = opts.home ?? tacitHome();
-    mkdirSync(home, { recursive: true, mode: 0o700 });
     this.path = join(home, 'tacit.db');
     this.maxVisits = opts.maxVisits ?? MAX_VISITS;
-    this.db = new Database(this.path, { create: true, strict: true });
-    chmodSync(this.path, 0o600);
-    this.db.exec(
-      'PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 3000; PRAGMA synchronous = NORMAL; PRAGMA secure_delete = ON;',
-    );
-    this.db.exec(SCHEMA);
+    if (opts.readonly) {
+      this.db = openReadonly(this.path);
+      this.db.exec('PRAGMA busy_timeout = 3000;');
+      if (this.version() < SCHEMA_VERSION) throw new Error(`${tilde(this.path)} is from an older Tacit. Start the harness once to update it: bun run harness`);
+    } else {
+      mkdirSync(home, { recursive: true, mode: 0o700 });
+      this.db = new Database(this.path, { create: true, strict: true });
+      chmodSync(this.path, 0o600);
+      this.db.exec(
+        'PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 3000; PRAGMA synchronous = NORMAL; PRAGMA secure_delete = ON;',
+      );
+      this.db.exec(SCHEMA);
+      this.migrate();
+    }
     this.loadForgotten();
+  }
+
+  private version(): number {
+    return this.db.query<{ user_version: number }, []>('PRAGMA user_version').get()!.user_version;
+  }
+
+  /** Schema changes past the base tables, in order, recorded in user_version. */
+  private migrate(): void {
+    const version = this.version();
+    if (version < 1) {
+      this.db.transaction(() => {
+        // Contentless: the text already lives in `pages`; the index keeps only what it needs to find it.
+        this.db.exec(
+          "CREATE VIRTUAL TABLE IF NOT EXISTS pages_fts USING fts5(title, domain, body, content='', contentless_delete=1, tokenize='unicode61 remove_diacritics 2')",
+        );
+        const rows = this.db.query<{ rowid: number; title: string; domain: string; text: string }, []>('SELECT rowid, title, domain, text FROM pages').all();
+        for (const r of rows) this.indexPage(r.rowid, r.title, r.domain, r.text);
+        this.db.exec('PRAGMA user_version = 1');
+      })();
+    }
+    if (version < 2) {
+      this.db.exec(`CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, data_json TEXT NOT NULL);
+        PRAGMA user_version = 2;`);
+    }
+  }
+
+  /** Follow what happens from now on; returns how to stop. */
+  follow(fn: (e: TacitEvent) => void): () => void {
+    this.followers.add(fn);
+    return () => this.followers.delete(fn);
+  }
+
+  /** Events after `since`, oldest first. */
+  eventsSince(since: number, limit: number): TacitEvent[] {
+    return this.db
+      .query<{ id: number; at: number; data_json: string }, [number, number]>('SELECT id, at, data_json FROM events WHERE id > ? ORDER BY id LIMIT ?')
+      .all(since, limit)
+      .map((r) => ({ id: r.id, at: r.at, ...JSON.parse(r.data_json) }) as TacitEvent);
+  }
+
+  lastEventId(): number {
+    return this.db.query<{ id: number | null }, []>('SELECT MAX(id) AS id FROM events').get()!.id ?? 0;
+  }
+
+  /** Written inside the caller's transaction; followers hear of them once it commits. */
+  private record(bodies: EventBody[], at: number, out: TacitEvent[]): void {
+    for (const body of bodies) {
+      const { lastInsertRowid } = this.db.query('INSERT INTO events (at, data_json) VALUES (?, ?)').run(at, JSON.stringify(body));
+      out.push({ id: Number(lastInsertRowid), at, ...body } as TacitEvent);
+    }
+  }
+
+  private announce(events: TacitEvent[]): void {
+    for (const e of events) for (const fn of this.followers) fn(e);
+  }
+
+  private count(sql: string, ...params: string[]): number {
+    return this.db.query<{ n: number }, string[]>(sql).get(...params)!.n;
+  }
+
+  private indexPage(rowid: number, title: string, domain: string, text: string): void {
+    this.db.query('DELETE FROM pages_fts WHERE rowid = ?').run(rowid);
+    this.db.query('INSERT INTO pages_fts (rowid, title, domain, body) VALUES (?, ?, ?, ?)').run(rowid, tokens(title), tokens(domain.replaceAll('.', ' ')), tokens(text));
+  }
+
+  private unindexPages(where: string, ...params: string[]): void {
+    this.db.query(`DELETE FROM pages_fts WHERE rowid IN (SELECT rowid FROM pages WHERE ${where})`).run(...params);
   }
 
   /** Applies events in one transaction and returns how many were stored. Deleted history is refused. */
   ingest(events: IngestEvent[], now = Date.now()): number {
     if (events.length === 0) return 0;
     let stored = 0;
+    const happened: TacitEvent[] = [];
     this.db.transaction(() => {
       for (const ev of events) {
         const forgotten = ev.kind === 'ledger' ? this.isForgotten(ev.entry.url, ev.entry.createdAt ?? ev.entry.at) : this.isForgotten(ev.visit.url, ev.visit.startedAt);
         if (forgotten) continue;
         stored++;
+        this.record(eventOf(ev), now, happened);
         if (ev.kind === 'page') {
           this.putPage(ev.page, now);
           this.putVisit(ev.visit, now);
@@ -154,6 +293,7 @@ export class Store {
       }
       this.prune();
     })();
+    this.announce(happened);
     return stored;
   }
 
@@ -192,18 +332,28 @@ export class Store {
   }
 
   /** The visit the user is on: the latest-updated open visit, else the latest-updated one. */
-  currentVisit(): Visit | null {
-    const row = this.db
+  /** The open visit, else the latest one; `accept` passes over visits that should not count, like redirects. */
+  currentVisit(accept: (v: Visit) => boolean = () => true): Visit | null {
+    const rows = this.db
       .query<JsonRow, []>(
         `SELECT data_json FROM visits
          ORDER BY json_extract(data_json, '$.endedAt') IS NULL DESC, updated_at DESC, started_at DESC
-         LIMIT 1`,
+         LIMIT 20`,
       )
-      .get();
-    return row ? (JSON.parse(row.data_json) as Visit) : null;
+      .all();
+    for (const row of rows) {
+      const v = JSON.parse(row.data_json) as Visit;
+      if (accept(v)) return v;
+    }
+    return null;
   }
 
   /** Newest first by start time. */
+  /** When the extension last sent anything about a visit. */
+  activeAt(id: string): number | undefined {
+    return this.db.query<{ updated_at: number }, [string]>('SELECT updated_at FROM visits WHERE id = ?').get(id)?.updated_at;
+  }
+
   recentVisits(limit: number): Visit[] {
     return this.db
       .query<JsonRow, [number]>('SELECT data_json FROM visits ORDER BY started_at DESC LIMIT ?')
@@ -223,14 +373,18 @@ export class Store {
     return row ? (JSON.parse(row.model_json) as PageModel) : null;
   }
 
-  /** Pages the user read, most recently seen first. Search result pages are left out. */
-  searchablePages(limit: number): SearchablePage[] {
+  /** Full-text search over every page kept, best match first. Search result pages are left out. */
+  searchPages(terms: string[], limit: number): PageHit[] {
+    if (terms.length === 0) return [];
+    const match = terms.map((t) => `"${t.replaceAll('"', '""')}"`).join(' OR ');
     return this.db
-      .query<SearchablePage, [number]>(
-        `SELECT url, title, domain, text, last_seen AS lastSeen FROM pages WHERE kind != 'search'
-         ORDER BY last_seen DESC LIMIT ?`,
+      .query<PageHit, Record<string, string | number>>(
+        `SELECT p.url, p.title, p.domain, p.last_seen AS lastSeen, -bm25(pages_fts, ${TITLE_WEIGHT}, 1.0, 1.0) AS score
+         FROM pages_fts JOIN pages p ON p.rowid = pages_fts.rowid
+         WHERE pages_fts MATCH $match AND p.kind != 'search'
+         ORDER BY score DESC, p.last_seen DESC LIMIT $limit`,
       )
-      .all(limit);
+      .all({ match, limit });
   }
 
   /** Newest first. */
@@ -286,13 +440,24 @@ export class Store {
 
   /** Forgets one page: the page, its visits and what Tacit did there. */
   deletePage(url: string, now = Date.now()): DeletedCounts {
+    const happened: TacitEvent[] = [];
     const deleted = this.db.transaction(() => {
+      // Counted before deleting: FTS5 flushes its index lazily, which inflates `changes` of later statements.
       const counts = {
-        pages: this.db.query('DELETE FROM pages WHERE url = ?').run(url).changes,
-        visits: this.db.query('DELETE FROM visits WHERE url = ?').run(url).changes,
-        actions: this.db.query("DELETE FROM ledger WHERE json_extract(data_json, '$.url') = ?").run(url).changes,
+        pages: this.count('SELECT COUNT(*) AS n FROM pages WHERE url = ?', url),
+        visits: this.count('SELECT COUNT(*) AS n FROM visits WHERE url = ?', url),
+        actions: this.count("SELECT COUNT(*) AS n FROM ledger WHERE json_extract(data_json, '$.url') = ?", url),
       };
+      this.unindexPages('url = ?', url);
+      this.db.query('DELETE FROM pages WHERE url = ?').run(url);
+      this.db.query('DELETE FROM visits WHERE url = ?').run(url);
+      this.db.query("DELETE FROM ledger WHERE json_extract(data_json, '$.url') = ?").run(url);
+      // The event log names pages too; a deleted page leaves it as well.
+      this.db
+        .query("DELETE FROM events WHERE ? IN (json_extract(data_json, '$.visit.url'), json_extract(data_json, '$.page.url'), json_extract(data_json, '$.action.url'))")
+        .run(url);
       if (counts.pages + counts.visits + counts.actions > 0) {
+        this.record([{ kind: 'forgotten', all: false, pages: counts.pages }], now, happened);
         this.db.query('INSERT INTO forgotten (key, at) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET at = excluded.at').run(forgetKeySync(url), now);
         this.db
           .query(`DELETE FROM forgotten WHERE key != '${ALL}' AND key NOT IN (SELECT key FROM forgotten WHERE key != '${ALL}' ORDER BY at DESC LIMIT ?)`)
@@ -300,23 +465,32 @@ export class Store {
       }
       return counts;
     })();
+    this.announce(happened);
     this.loadForgotten();
     this.checkpoint();
     return deleted;
   }
 
   deleteAll(now = Date.now()): DeletedCounts {
+    const happened: TacitEvent[] = [];
     const deleted = this.db.transaction(() => {
       const counts = {
-        pages: this.db.run('DELETE FROM pages').changes,
-        visits: this.db.run('DELETE FROM visits').changes,
-        actions: this.db.run('DELETE FROM ledger').changes,
+        pages: this.count('SELECT COUNT(*) AS n FROM pages'),
+        visits: this.count('SELECT COUNT(*) AS n FROM visits'),
+        actions: this.count('SELECT COUNT(*) AS n FROM ledger'),
       };
-      // One tombstone covers everything before now, including pages deleted one by one.
+      this.db.run("INSERT INTO pages_fts (pages_fts) VALUES ('delete-all')");
+      this.db.run('DELETE FROM pages');
+      this.db.run('DELETE FROM visits');
+      this.db.run('DELETE FROM ledger');
+      // One tombstone covers everything before now, including pages deleted one by one; so does one event.
       this.db.run('DELETE FROM forgotten');
       this.db.query('INSERT INTO forgotten (key, at) VALUES (?, ?)').run(ALL, now);
+      this.db.run('DELETE FROM events');
+      this.record([{ kind: 'forgotten', all: true, pages: counts.pages }], now, happened);
       return counts;
     })();
+    this.announce(happened);
     this.loadForgotten();
     try {
       this.db.run('VACUUM');
@@ -338,12 +512,18 @@ export class Store {
 
   private storage(): StatsResponse['storage'] {
     const size = (p: string) => (existsSync(p) ? statSync(p).size : 0);
-    const home = homedir();
-    const display = this.path.startsWith(home + sep) ? `~${this.path.slice(home.length)}` : this.path;
-    return { path: this.path, display, bytes: size(this.path) + size(`${this.path}-wal`) };
+    return { path: this.path, display: tilde(this.path), bytes: size(this.path) + size(`${this.path}-wal`) };
   }
 
-  private putPage(page: PageModel, now: number): void {
+  private putPage(incoming: PageModel, now: number): void {
+    // A page read before it loaded, or a redirect on its way out, reads as empty: it never replaces what an earlier
+    // visit to the same address read. A title that is only the address never replaces a real one either.
+    const kept = this.db.query<{ n: number; title: string }, [string]>('SELECT length(text) AS n, title FROM pages WHERE url = ?').get(incoming.url);
+    if (kept && kept.n > 0 && incoming.blocks.length === 0) {
+      this.db.query('UPDATE pages SET last_seen = ? WHERE url = ?').run(now, incoming.url);
+      return;
+    }
+    const page = kept && kept.title !== incoming.url && incoming.title === incoming.url ? { ...incoming, title: kept.title } : incoming;
     this.db
       .query(
         `INSERT INTO pages (url, title, domain, kind, model_json, text, first_seen, last_seen)
@@ -360,6 +540,8 @@ export class Store {
         text: page.blocks.map((b) => b.text).join('\n'),
         now,
       });
+    const { rowid } = this.db.query<{ rowid: number }, [string]>('SELECT rowid FROM pages WHERE url = ?').get(page.url)!;
+    this.indexPage(rowid, page.title, page.domain, page.blocks.map((b) => b.text).join('\n'));
   }
 
   private putVisit(visit: Visit, now: number): void {
@@ -383,13 +565,14 @@ export class Store {
 
   /** Keeps the newest visits and drops pages that no kept visit points to and nobody has seen since. */
   private prune(): void {
+    this.db.query('DELETE FROM events WHERE id <= (SELECT MAX(id) FROM events) - ?').run(MAX_EVENTS);
     const { n } = this.db.query<{ n: number }, []>('SELECT COUNT(*) AS n FROM visits').get()!;
     if (n <= this.maxVisits) return;
     this.db
       .query('DELETE FROM visits WHERE id NOT IN (SELECT id FROM visits ORDER BY updated_at DESC, started_at DESC LIMIT ?)')
       .run(this.maxVisits);
-    this.db.run(
-      'DELETE FROM pages WHERE url NOT IN (SELECT url FROM visits) AND last_seen < (SELECT MIN(updated_at) FROM visits)',
-    );
+    const stale = 'url NOT IN (SELECT url FROM visits) AND last_seen < (SELECT MIN(updated_at) FROM visits)';
+    this.unindexPages(stale);
+    this.db.run(`DELETE FROM pages WHERE ${stale}`);
   }
 }

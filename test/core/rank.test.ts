@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { combinedConfidence, inferIntent, jumpActions, modeFor, rankActions, rankBlocks, topBlocks, type Intent } from '../../core';
+import { combinedConfidence, inferIntent, jumpActions, modeFor, rankActions, rankBlocks, siteTerms, topBlocks, type Action, type Block, type Intent } from '../../core';
 import { NOW, articlePage, visit } from './fixtures';
 
 function intentFor(query: string): Intent {
@@ -21,11 +21,40 @@ describe('rankBlocks', () => {
     expect(ranked.every((r) => r.score === 0)).toBe(true);
   });
 
+  test('a Chinese article’s references do not outrank its text, though its English citations match', () => {
+    const blocks: Block[] = [
+      { id: 'b0', kind: 'heading', level: 2, text: '延迟', section: '延迟' },
+      { id: 'b1', kind: 'para', text: '人机交互中的决策延迟 decision latency 影响用户是否觉得系统在跟着自己思考。', section: '延迟' },
+      { id: 'b2', kind: 'heading', level: 2, text: '参考文献', section: '参考文献' },
+      { id: 'b3', kind: 'item', text: 'Card, S. Decision latency in human computer interaction. Human–Computer Interaction, 1983.', section: '参考文献' },
+    ];
+    const jumps = jumpActions(rankBlocks(blocks, intentFor('decision latency human computer interaction')));
+    expect(jumps[0]!.label).toBe('Jump to “延迟”');
+  });
+
   test('jump actions point at the best sections once each', () => {
     const page = articlePage();
     const jumps = jumpActions(rankBlocks(page.blocks, intentFor('latency milliseconds threshold')));
     expect(jumps[0]!.label).toBe('Jump to “Latency: why 400 ms matters”');
     expect(new Set(jumps.map((j) => j.label)).size).toBe(jumps.length);
+  });
+});
+
+describe('the site’s own name', () => {
+  test('comes from the address and the end of the title', () => {
+    expect([...siteTerms('35a.hkust.edu.hk', 'Home | HKUST 35th Anniversary')].sort()).toEqual(['35a', 'hkust']);
+    expect([...siteTerms('en.wikipedia.org', 'Human–computer interaction - Wikipedia')]).toEqual(['wikipedia']);
+    expect([...siteTerms('127.0.0.1', 'Notes')]).toEqual([]);
+  });
+
+  test('tells no link on that site apart, while the rest of the intent still does', () => {
+    const link = (id: string, label: string, context: string): Action => ({ id, kind: 'link', label, href: `https://hkust.edu.hk/${id}`, context, region: 'main' });
+    const actions = [link('admissions', 'Admissions', 'Admissions at HKUST'), link('research', 'Research', 'Research at HKUST'), link('erwin', 'Erwin Huang', 'Erwin Huang, HKUST CEI')];
+    const site = siteTerms('hkust.edu.hk', 'About | HKUST');
+    expect(rankActions(actions, intentFor('hkust'), 8, site).ranked).toEqual([]);
+    expect(rankActions(actions, intentFor('erwin hkust'), 8, site).ranked.map((r) => r.item.id)).toEqual(['erwin']);
+    // Off the site, the name is what you are after.
+    expect(rankActions(actions, intentFor('hkust'), 8).ranked.length).toBe(3);
   });
 });
 

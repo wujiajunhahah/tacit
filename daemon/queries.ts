@@ -2,13 +2,13 @@
 
 import {
   NO_INTENT,
-  buildIndex,
   buildPacket,
   clip,
   describeArrival,
   inferIntent,
+  isHop,
   rankBlocks,
-  scoreDoc,
+  siteTerms,
   tokenize,
   type Block,
   type CurrentContextResponse,
@@ -20,13 +20,10 @@ import {
   type TrailItem,
   type Visit,
 } from '../core';
-import type { SearchablePage, Store } from './db';
+import type { Store } from './db';
 
 /** Visits the intent is inferred from, current one included. */
 const INTENT_TRAIL = 30;
-/** Search covers this many most recently seen pages. */
-const SEARCH_CORPUS = 1000;
-const TITLE_WEIGHT = 3;
 const SNIPPET_CHARS = 200;
 const PAGE_VISITS = 20;
 
@@ -36,7 +33,7 @@ export interface ContextOptions {
 
 /** The current visit and the visits before it, oldest first. */
 function recent(store: Store): { current: Visit | null; earlier: Visit[] } {
-  const current = store.currentVisit();
+  const current = store.currentVisit((v) => !isHop(v));
   if (!current) return { current: null, earlier: [] };
   const earlier = store
     .recentVisits(INTENT_TRAIL)
@@ -61,11 +58,11 @@ export function currentContext(store: Store, opts: ContextOptions = {}): Current
         intent,
         visit: current,
         trail: earlier,
-        ranked: rankBlocks(page.blocks, intent),
+        ranked: rankBlocks(page.blocks, intent, siteTerms(page.domain, page.title)),
         maxPassages: opts.maxPassages,
       })
     : null;
-  return { visit: current, page, intent, packet };
+  return { visit: current, page, intent, packet, activeAt: store.activeAt(current.id) };
 }
 
 export function intent(store: Store): Intent {
@@ -75,7 +72,11 @@ export function intent(store: Store): Intent {
 
 /** Newest first, each with a sentence on how the user arrived. */
 export function trail(store: Store, limit: number): TrailItem[] {
-  return store.recentVisits(limit).map((visit) => ({ visit, arrival: describeArrival(visit) }));
+  return store
+    .recentVisits(limit * 2)
+    .filter((v) => !isHop(v))
+    .slice(0, limit)
+    .map((visit) => ({ visit, arrival: describeArrival(visit) }));
 }
 
 export function page(store: Store, url: string): PageResponse | null {
@@ -89,33 +90,16 @@ export function ledger(store: Store, limit: number): LedgerEntry[] {
 
 /** BM25 over the pages the user has read; titles count three times. */
 export function search(store: Store, query: string, limit: number): SearchHit[] {
-  const terms: Record<string, number> = {};
-  for (const t of tokenize(query)) terms[t] = 1;
-  if (Object.keys(terms).length === 0) return [];
-
-  const pages = store.searchablePages(SEARCH_CORPUS);
-  const index = buildIndex(pages.map(docTokens));
-  return pages
-    .map((p, i) => ({ p, score: scoreDoc(index, i, terms).score }))
-    .filter((h) => h.score > 0)
-    .sort((a, b) => b.score - a.score || b.p.lastSeen - a.p.lastSeen)
-    .slice(0, limit)
-    .map(({ p, score }) => ({
-      url: p.url,
-      title: p.title,
-      domain: p.domain,
-      snippet: snippetFor(store, p.url, terms),
-      score,
-      lastSeen: p.lastSeen,
-    }));
-}
-
-function docTokens(p: SearchablePage): string[] {
-  const title = tokenize(p.title);
-  const out: string[] = [];
-  for (let i = 0; i < TITLE_WEIGHT; i++) out.push(...title);
-  out.push(...tokenize(p.domain.replaceAll('.', ' ')), ...tokenize(p.text));
-  return out;
+  const tokens = [...new Set(tokenize(query))];
+  const terms = Object.fromEntries(tokens.map((t) => [t, 1]));
+  return store.searchPages(tokens, limit).map((p) => ({
+    url: p.url,
+    title: p.title,
+    domain: p.domain,
+    snippet: snippetFor(store, p.url, terms),
+    score: p.score,
+    lastSeen: p.lastSeen,
+  }));
 }
 
 /** The best-matching body block (a heading only if nothing else matches), cut around the first match. */

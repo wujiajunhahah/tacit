@@ -18,14 +18,15 @@ Tacit is a local context harness. A browser extension records the page the user 
 
 ## How
 
+- A note headed "The user's browser" may already be in your context: Tacit's prompt hook adds it when a prompt builds on the screen. Start from it, and call a tool only for more.
 - Call the tool before asking the user anything about the page. Never ask them to paste it.
 - Name the page you used by title and URL, and quote what you rely on, so the user can check.
-- Start from "Passages I read closely": that is where the user lingered.
+- Start from "What I did on this page": what they selected and read closely, in the order they did it, is where their attention went.
 - What the user is after is a guess with a confidence. When the confidence is low, say what you assumed.
 - The context is the user's. Use it for the task they asked for, and do not send it anywhere else.
 
 ## When it does not work
 
-- The tools are missing: Tacit is not connected. In the tacit folder, run `bun run setup`, then restart.
-- "Tacit has not recorded any browsing yet": the extension is not loaded or the harness is not running. Ask the user to load the `extension` folder in `chrome://extensions` and to run `bun run harness` in the tacit folder.
+- The tools are missing: Tacit is not connected. The same answers come from the command line: `tacit now --full`, `tacit search <words>`, `tacit page <url>` (or `bun run tacit …` in the tacit folder). To connect the tools, run `bun run setup` in the tacit folder, then restart.
+- "Tacit has not recorded any browsing yet": the extension is not loaded, not paired, or the harness is not running. Ask the user to load the `extension` folder in `chrome://extensions`, run `bun run harness` in the tacit folder, and then `bun run pair`.
 - Setting up from nothing: follow https://raw.githubusercontent.com/wujiajunhahah/tacit/main/docs/agent-setup.md

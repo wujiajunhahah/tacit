@@ -20,6 +20,8 @@ const PAGE_CSS = `
   opacity: .82;
   border-radius: 1px;
   pointer-events: none;
+  transform-origin: top;
+  animation: tacit-ink .34s cubic-bezier(.2, .8, .2, 1) both;
 }
 li[data-tacit-hl]::before { left: -2.1em; }
 [data-tacit-flash] { animation: tacit-flash 1.4s ease-out 1 !important; }
@@ -27,6 +29,9 @@ li[data-tacit-hl]::before { left: -2.1em; }
   0% { background-color: rgba(128, 128, 136, .22); }
   100% { background-color: rgba(128, 128, 136, 0); }
 }
+/* Ink is drawn, top to bottom, the moment Tacit marks something; marks that stay are not drawn again. */
+@keyframes tacit-ink { from { transform: scaleY(0); opacity: 0; } }
+@keyframes tacit-fade { from { opacity: 0; } }
 html[data-tacit-focus] [data-tacit-dim] { opacity: .2 !important; transition: opacity .2s ease !important; }
 html[data-tacit-focus] [data-tacit-dim]:hover { opacity: 1 !important; }
 [data-tacit-relevant] { position: relative !important; }
@@ -40,6 +45,8 @@ html[data-tacit-focus] [data-tacit-dim]:hover { opacity: 1 !important; }
   background: var(--tacit-ink, currentColor);
   opacity: .8;
   pointer-events: none;
+  transform-origin: top;
+  animation: tacit-ink .34s cubic-bezier(.2, .8, .2, 1) both;
 }
 [data-tacit-folded] { cursor: pointer !important; min-height: 0 !important; }
 [data-tacit-folded] > * { display: none !important; }
@@ -51,9 +58,12 @@ html[data-tacit-focus] [data-tacit-dim]:hover { opacity: 1 !important; }
   text-align: left;
   font: 11.5px/16px -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   color: rgba(120, 120, 128, .95);
+  animation: tacit-fade .22s ease-out both;
 }
 [data-tacit-folded]:hover::before { text-decoration: underline; text-underline-offset: 3px; }
-@media (prefers-reduced-motion: reduce) { [data-tacit-flash] { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  [data-tacit-flash], [data-tacit-hl]::before, [data-tacit-relevant]::after, [data-tacit-folded]::before { animation: none !important; }
+}
 `;
 
 export function installPageStyles(doc: Document = document): void {
@@ -72,20 +82,35 @@ function foldLabel(count: number): string {
   return tn('fold.one', 'fold.many', count);
 }
 
+/**
+ * Marks the page as the view says. Only what changed is touched: a mark that stays keeps its ink, instead of being
+ * drawn again on every update.
+ */
 export function applyMarks(view: View, elements: Map<string, Element>, doc: Document = document): void {
-  clearMarks(doc);
-  for (const id of view.highlights) elements.get(id)?.setAttribute('data-tacit-hl', '');
-  for (const id of view.dims) elements.get(id)?.setAttribute('data-tacit-dim', '');
-  for (const id of view.relevantPosts) elements.get(id)?.setAttribute('data-tacit-relevant', '');
+  const want = new Map<Element, Map<string, string>>();
+  const mark = (el: Element | undefined, name: string, value = '') => {
+    if (!el) return;
+    const marks = want.get(el) ?? new Map<string, string>();
+    marks.set(name, value);
+    want.set(el, marks);
+  };
+  for (const id of view.highlights) mark(elements.get(id), 'data-tacit-hl');
+  for (const id of view.dims) mark(elements.get(id), 'data-tacit-dim');
+  for (const id of view.relevantPosts) mark(elements.get(id), 'data-tacit-relevant');
   // A virtual list may have recycled the start of a run; the label goes on the first post still on the page.
   view.foldRuns.forEach((run, r) => {
     run.flatMap((id) => elements.get(id) ?? []).forEach((el, i) => {
-      el.setAttribute('data-tacit-folded', '');
-      el.setAttribute('data-tacit-run', String(r));
-      if (i === 0) el.setAttribute('data-tacit-fold-label', foldLabel(run.length));
-      else el.setAttribute('data-tacit-fold-tail', '');
+      mark(el, 'data-tacit-folded');
+      mark(el, 'data-tacit-run', String(r));
+      if (i === 0) mark(el, 'data-tacit-fold-label', foldLabel(run.length));
+      else mark(el, 'data-tacit-fold-tail');
     });
   });
+  doc.querySelectorAll(MARKS.map((m) => `[${m}]`).join(',')).forEach((el) => {
+    const keep = want.get(el);
+    for (const m of MARKS) if (!keep?.has(m)) el.removeAttribute(m);
+  });
+  for (const [el, marks] of want) for (const [name, value] of marks) if (el.getAttribute(name) !== value) el.setAttribute(name, value);
 }
 
 export function flash(el: Element): void {

@@ -6,10 +6,13 @@ import {
   clip,
   combinedConfidence,
   describeEvidence,
+  domainOf,
   jumpActions,
   modeFor,
   rankActions,
   rankBlocks,
+  searchQueryOf,
+  siteTerms,
   softmax,
   topBlocks,
   type Action,
@@ -139,7 +142,9 @@ function feedView(page: PageModel, intent: Intent, ranked: Ranked<Block>[], unfo
 }
 
 export function computeView(page: PageModel, intent: Intent, feed: boolean, unfolded: Set<string> = new Set(), opts: ViewOptions = {}): View {
-  const ranked = rankBlocks(page.blocks, intent);
+  // On hkust.edu.hk, "hkust" tells nothing apart: only the rest of what you are after ranks the page.
+  const site = siteTerms(page.domain, page.title);
+  const ranked = rankBlocks(page.blocks, intent, site);
   if (intent.source === 'none') return base(page, intent, ranked);
   if (feed) return feedView(page, intent, ranked, unfolded, opts);
 
@@ -147,7 +152,12 @@ export function computeView(page: PageModel, intent: Intent, feed: boolean, unfo
   const sure = intent.confidence >= (opts.thresholds?.suggest ?? SURE);
   v.highlights = sure ? topBlocks(ranked, 3, 0.5).map((r) => r.item.id) : [];
   v.dims = sure && v.highlights.length ? ranked.filter((r) => r.item.kind !== 'heading' && r.relevance < 0.12).map((r) => r.item.id) : [];
-  const ranking = rankActions([...jumpActions(ranked, 2), ...page.actions], intent, 12);
+  // On a results page the next step is to open a result: not to scroll to one you can already see, nor to search
+  // the same engine again.
+  const searching = page.kind === 'search';
+  const jumps = searching ? [] : jumpActions(ranked, 2);
+  const steps = searching ? page.actions.filter((a) => !(a.href && searchQueryOf(a.href) && domainOf(a.href) === page.domain)) : page.actions;
+  const ranking = rankActions([...jumps, ...steps], intent, 12, site);
   v.candidates = ranking.ranked;
   v.suggestions = ranking.ranked.slice(0, 3).map((r) => ({ action: r.item, p: r.p, reasons: r.reasons }));
   v.none = ranking.none;
@@ -221,13 +231,17 @@ export function refineView(
   if (next?.type === 'choice') {
     const reasons = new Map(view.candidates.map((c) => [c.item.id, c.reasons]));
     const scored = [...keys.next.entries()].map(([k, action]) => ({ action, p: next.probabilities[k] ?? 0 })).sort((a, b) => b.p - a.p);
-    v.suggestions = scored
-      .filter((s) => s.p >= 0.05)
-      .slice(0, 3)
-      .map((s) => ({ action: s.action, p: s.p, reasons: reasons.get(s.action.id) ?? [`chosen by ${res.engine}`] }));
+    // The engine says nothing here fits: the line says what the user is after, and offers no step.
+    const nothing = next.choice === 'none';
+    v.suggestions = nothing
+      ? []
+      : scored
+          .filter((s) => s.p >= 0.05)
+          .slice(0, 3)
+          .map((s) => ({ action: s.action, p: s.p, reasons: reasons.get(s.action.id) ?? [`chosen by ${res.engine}`] }));
     v.none = next.probabilities.none ?? 0;
     v.confidence = combinedConfidence(intent.confidence, scored[0]?.p ?? 0);
-    v.mode = !sure ? 'ask' : next.choice === 'none' || v.confidence < act ? 'suggest' : 'act';
+    v.mode = !sure ? 'ask' : nothing ? (v.highlights.length ? 'suggest' : 'quiet') : v.confidence < act ? 'suggest' : 'act';
   }
   if (keys.posts.size) {
     const yes = new Map<string, number>();

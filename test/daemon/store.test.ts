@@ -26,6 +26,29 @@ describe('Store', () => {
     expect(store.recentVisits(5)[0]?.dwellMs).toBe(42_000);
   });
 
+  test('an empty read of a page never replaces what an earlier visit read', () => {
+    const url = 'https://www.bing.com/search?q=erwin+hkust';
+    const results = { ...simplePage(url, 'erwin hkust - 搜索', 'Erwin Huang, HKUST associate professor and senior advisor'), kind: 'search' as const };
+    store.ingest([pageEvent(results, visitTo(results))]);
+    const empty = { ...results, title: url, blocks: [], outline: [], textLength: 0 };
+    store.ingest([pageEvent(empty, visitTo(empty, { title: '' }))]);
+    expect(store.page(url)).toMatchObject({ title: 'erwin hkust - 搜索', blocks: [{ text: 'Erwin Huang, HKUST associate professor and senior advisor' }] });
+    // A real change still lands, and a title that is only the address keeps the old one.
+    const fresh = { ...results, title: url, blocks: [{ id: 'p0', kind: 'para' as const, text: 'Erwin Huang, now with three results', section: '' }] };
+    store.ingest([pageEvent(fresh, visitTo(fresh))]);
+    expect(store.page(url)).toMatchObject({ title: 'erwin hkust - 搜索', blocks: [{ text: 'Erwin Huang, now with three results' }] });
+  });
+
+  test('a redirect on the way is neither the current page nor in the trail', () => {
+    const serp = simplePage('https://www.bing.com/search?q=hkust', 'hkust - 搜索', 'HKUST, the Hong Kong University of Science and Technology');
+    const v = visitTo(serp, { startedAt: Date.now() - 2 * MIN });
+    const hopPage = { ...simplePage('https://www.bing.com/ck/a?u=1', 'https://www.bing.com/ck/a?u=1', ''), blocks: [] };
+    const hop = visitTo(hopPage, { title: '', dwellMs: 800, startedAt: Date.now() - MIN, endedAt: Date.now() - MIN + 800 });
+    store.ingest([pageEvent(serp, v), pageEvent(hopPage, hop)]);
+    expect(currentContext(store).visit?.url).toBe(serp.url);
+    expect(trail(store, 10).map((t) => t.visit.url)).toEqual([serp.url]);
+  });
+
   test('a visit that just ended does not take the current spot from an open one', () => {
     const a = simplePage('https://a.example/', 'A', 'alpha');
     const b = simplePage('https://b.example/', 'B', 'beta');
@@ -50,6 +73,23 @@ describe('Store', () => {
     expect(store.counts()).toEqual({ visits: 3, pages: 3 });
     expect(store.page('https://p0.example/')).toBeNull();
     expect(store.page('https://p4.example/')?.title).toBe('Page 4');
+  });
+
+  test('a reader sees what the harness writes, and reads the ledger with the harness stopped', () => {
+    const a = simplePage('https://a.example/', 'A', 'alpha');
+    store.ingest([pageEvent(a, visitTo(a))]);
+    const reader = new Store({ home, readonly: true });
+    const b = simplePage('https://b.example/', 'B', 'beta');
+    store.ingest([pageEvent(b, visitTo(b))]);
+    expect(reader.counts()).toEqual({ visits: 2, pages: 2 });
+    expect(() => reader.ingest([pageEvent(a, visitTo(a))])).toThrow();
+    reader.close();
+    // The last writer gone, SQLite removes the files a reader would need to share; a reader opens the file as it is.
+    store.close();
+    const alone = new Store({ home, readonly: true });
+    expect(alone.page('https://b.example/')?.title).toBe('B');
+    alone.close();
+    store = new Store({ home });
   });
 });
 

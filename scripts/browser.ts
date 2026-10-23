@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type BrowserContext, type Page, type Worker } from 'playwright';
+import { HARNESS_ORIGIN } from '../core';
 
 export const ROOT = new URL('..', import.meta.url).pathname;
 export const EXTENSION = join(ROOT, 'extension');
@@ -68,4 +69,19 @@ export async function searchThenOpen(page: Page, site: string, query: string, ta
 export async function openSlip(page: Page): Promise<void> {
   await page.locator('tacit-capsule .line').hover();
   await page.waitForTimeout(350);
+}
+
+/**
+ * Pairs the extension with a harness the way `bun run pair` does: through the pairing page, with the token in its
+ * fragment. Also unlocks the dashboard in this browser. Returns what the page says.
+ */
+export async function pairWith(b: TacitBrowser, token: string): Promise<string> {
+  const page = await b.context.newPage();
+  try {
+    await page.goto(`${HARNESS_ORIGIN}/pair#${token}`);
+    await page.locator('#open:not([hidden])').waitFor({ timeout: 10_000 });
+    return (await page.locator('#status').innerText()).trim();
+  } finally {
+    await page.close();
+  }
 }

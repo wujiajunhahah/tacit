@@ -95,6 +95,19 @@ describe('engine questions', () => {
     expect(refined.mode).toBe('act');
   });
 
+  test('when the engine says nothing here fits, the line offers no step', () => {
+    const page = articlePage();
+    const intent = searched('decision latency');
+    const view = computeView(page, intent, false);
+    const d = buildDecision(page, intent, view, false)!;
+    const probabilities = Object.fromEntries([...d.keys.next.keys()].map((k) => [k, 0.05]));
+    const res: DecisionResponse = { engine: 'jev', latencyMs: 300, answers: { next: { type: 'choice', choice: 'none', probabilities: { ...probabilities, none: 0.6 }, confidence: 0.5 } } };
+    const refined = refineView(view, intent, res, d.keys, new Set(), page.actions);
+    expect(refined.suggestions).toEqual([]);
+    expect(refined.none).toBe(0.6);
+    expect(refined.mode).not.toBe('act');
+  });
+
   test('feeds ask a yes/no per post and fold what the engine rules out', () => {
     const page = feedPage();
     const intent = searched('agent page context copy paste');

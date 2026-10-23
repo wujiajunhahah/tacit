@@ -2,7 +2,8 @@
 
 import type { HealthResponse } from '../../core';
 import { GUIDE_URL } from '../../core/links';
-import { get } from './api';
+import { HttpError, adoptToken, get } from './api';
+import { hostsOf, leadOf } from './decisions';
 import { attrs, el } from './dom';
 import { getLocale, initLocale, setLocale, t, tn, type Key } from './i18n';
 import type { App, View } from './view';
@@ -70,11 +71,14 @@ function drawStatus(): void {
   const status = byId('status');
   const h = app.health;
   status.classList.toggle('is-off', !h);
-  status.textContent = h
-    ? [h.engine === 'jev' ? t('status.jev', { model: h.model ?? '' }).trim() : t('status.local'), tn('status.pages', h.pages)].join(' · ')
-    : t('status.offline');
+  status.textContent = !h
+    ? t('status.offline')
+    : !h.authorized
+      ? t('status.locked')
+      : [leadOf(h.decisions), tn('status.pages', h.pages ?? 0)].join(' · ');
   const guide = attrs(el('a', '', t('colophon.guide')), { href: GUIDE_URL[getLocale()], target: '_blank', rel: 'noreferrer' });
-  byId('colophon').replaceChildren(h?.engine === 'jev' ? t('colophon.jev') : t('colophon.local'), ' · ', guide);
+  const hosts = hostsOf(h?.decisions);
+  byId('colophon').replaceChildren(hosts ? t('colophon.cloud', { hosts }) : t('colophon.local'), ' · ', guide);
 }
 
 async function refreshStatus(): Promise<void> {
@@ -100,8 +104,15 @@ async function show(opts: { focus: boolean; polling?: boolean }): Promise<void> 
     if (opts.polling && out.key !== undefined && out.key === lastKey) return;
     lastKey = out.key ?? '';
     view.replaceChildren(out.node);
-  } catch {
-    if (mine === seq) view.replaceChildren(el('p', 'error', t('common.error')));
+    // A new view settles in; a poll that refreshes the same one does not move.
+    if (!opts.polling && out.node instanceof Element && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      out.node.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 200, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+    }
+  } catch (err) {
+    if (mine !== seq) return;
+    // Without the token there is nothing to show, and no way to guess it: say how to unlock.
+    const locked = err instanceof HttpError && err.status === 401;
+    view.replaceChildren(locked ? el('p', 'error', t('common.locked')) : el('p', 'error', t('common.error')));
     return;
   }
   if (focusSearch && name === 'library') {
@@ -149,6 +160,7 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden) void refreshStatus();
 });
 
+adoptToken();
 initLocale();
 drawChrome();
 void refreshStatus().then(() => show({ focus: false }));

@@ -3,7 +3,9 @@
 import {
   ago,
   clip,
+  describeArrival,
   describeEvidence,
+  distinctReads,
   type Block,
   type CurrentContextResponse,
   type Intent,
@@ -11,9 +13,52 @@ import {
   type PageResponse,
   type SearchHit,
   type TrailItem,
+  type Visit,
 } from '../core';
 import { readPassages } from './library';
 import { duration, pct, plural } from './units';
+
+/** How the reader asks for more: through MCP tools, or the `tacit` command. */
+export type Port = 'mcp' | 'cli';
+
+const MORE: Record<Port, { trail: string; page: (chars: number) => string; full: string; search: string }> = {
+  mcp: { trail: 'tacit_trail', page: () => 'call tacit_page with a larger max_chars for more', full: 'tacit_current_context', search: 'tacit_search' },
+  cli: { trail: '`tacit trail`', page: (chars) => `run \`tacit page <url> --chars ${chars * 2}\` for more`, full: '`tacit now --full`', search: '`tacit search <words>`' },
+};
+
+/** When the user was last active on the visit Tacit thinks is current. */
+export function lastActive(ctx: Pick<CurrentContextResponse, 'visit' | 'activeAt'>): number {
+  const v = ctx.visit;
+  if (!v) return 0;
+  return Math.max(ctx.activeAt ?? 0, v.endedAt ?? 0, v.startedAt, ...v.selections.map((s) => s.at), ...(v.reads ?? []).map((r) => r.at));
+}
+
+/** Below this, a guess about what the user is after would mislead an agent more than help it. */
+const SURE_ENOUGH = 0.35;
+
+/**
+ * The few lines an agent gets about the user's screen, about 100 tokens: where they are, what they seem to be after,
+ * how they got there, what they selected and read closely, and where to get more. Everything else waits until asked.
+ */
+export function formatBrief(ctx: CurrentContextResponse, now = Date.now(), port: Port = 'cli'): string {
+  const v = ctx.visit;
+  if (!v) return EMPTY_LEDGER;
+  const active = lastActive(ctx);
+  const when = now - active < 2 * 60_000 ? 'now' : ago(now - active);
+  const lines = [`The user's browser (${when}): “${clip(v.title || v.url, 90)}” ${v.url}`];
+  const i = ctx.intent;
+  if (i.source === 'stated' || (i.source !== 'none' && i.text && i.confidence >= SURE_ENOUGH)) {
+    lines.push(`They seem to be after: ${clip(i.text, 80)} (${i.source === 'stated' ? 'they said so' : pct(i.confidence)}).`);
+  }
+  const arrival = describeArrival(v);
+  if (arrival) lines.push(`They got there: ${arrival}.`);
+  const selected = v.selections.at(-1);
+  if (selected) lines.push(`Selected: “${clip(selected.text, 120)}”`);
+  const read = distinctReads(v.reads ?? []).sort((a, b) => b.ms - a.ms)[0];
+  if (read) lines.push(`Read closely: “${clip(read.text, 140)}”`);
+  lines.push(`More: ${MORE[port].full} for this page as context, ${MORE[port].search} for what they read before.`);
+  return lines.join('\n');
+}
 
 export const EMPTY_LEDGER =
   'Tacit has not recorded any browsing yet: ask the user to install the Tacit browser extension and open a page (everything stays on their machine).';
@@ -56,8 +101,8 @@ export function formatTrail(items: TrailItem[], now = Date.now()): string {
   return lines.join('\n');
 }
 
-export function formatSearch(query: string, hits: SearchHit[], now = Date.now()): string {
-  if (hits.length === 0) return `No page the user has read matches “${query}”. Try other words, or tacit_trail for recent pages.`;
+export function formatSearch(query: string, hits: SearchHit[], now = Date.now(), port: Port = 'mcp'): string {
+  if (hits.length === 0) return `No page the user has read matches “${query}”. Try other words, or ${MORE[port].trail} for recent pages.`;
   const lines = [`${plural(hits.length, 'page', 'pages')} the user read ${hits.length === 1 ? 'matches' : 'match'} “${query}”, best first:`];
   hits.forEach((h, i) => {
     lines.push('', `${i + 1}. ${h.title || h.url} (${h.domain} · last seen ${ago(now - h.lastSeen)})`, `   ${h.url}`);
@@ -66,7 +111,7 @@ export function formatSearch(query: string, hits: SearchHit[], now = Date.now())
   return lines.join('\n');
 }
 
-export function formatPage({ page, visits }: PageResponse, maxChars: number, now = Date.now()): string {
+export function formatPage({ page, visits }: PageResponse, maxChars: number, now = Date.now(), port: Port = 'mcp'): string {
   const head = [`# ${page.title || page.url}`, page.url];
   const last = visits[0];
   if (last) {
@@ -84,7 +129,7 @@ export function formatPage({ page, visits }: PageResponse, maxChars: number, now
   const top = Math.min(...blocks.map((b) => (b.kind === 'heading' ? (b.level ?? 2) : 6)));
   const full = [head.join('\n'), ...blocks.map((b) => blockMarkdown(b, page.kind, top))].join('\n\n');
   if (full.length <= maxChars) return full;
-  return `${full.slice(0, maxChars).trimEnd()}\n\n[Truncated at ${maxChars} of ${full.length} characters; call tacit_page with a larger max_chars for more.]`;
+  return `${full.slice(0, maxChars).trimEnd()}\n\n[Truncated at ${maxChars} of ${full.length} characters; ${MORE[port].page(maxChars)}.]`;
 }
 
 /** Markdown for one block; the shallowest heading level on the page becomes `##`. */

@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  CascadeEngine,
+  choiceConfidence,
   DecisionError,
-  FallbackEngine,
-  JevEngine,
   LocalEngine,
   normalizeAnswers,
+  SystemOneEngine,
   type DecisionEngine,
   type DecisionRequest,
 } from '../../core';
@@ -34,7 +35,7 @@ describe('LocalEngine', () => {
     if (next.type !== 'choice') throw new Error('expected choice');
     expect(next.choice).toBe('Jump to latency section');
     expect(Object.values(next.probabilities).reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
-    expect(next.confidence).toBe(next.probabilities[next.choice]!);
+    expect(next.confidence).toBeCloseTo(choiceConfidence(next.probabilities), 9);
 
     const relevant = res.answers.relevant!;
     if (relevant.type !== 'noul') throw new Error('expected noul');
@@ -71,10 +72,18 @@ function fakeFetch(handler: (url: string, init: RequestInit) => Response | Promi
   return ((url: string, init: RequestInit) => Promise.resolve(handler(url, init))) as unknown as typeof fetch;
 }
 
-describe('JevEngine', () => {
+describe('choiceConfidence', () => {
+  test('is how far the top option stands above an even guess', () => {
+    expect(choiceConfidence({ a: 0.7, b: 0.2, c: 0.1 })).toBeCloseTo(0.55, 9);
+    expect(choiceConfidence({ a: 0.5, b: 0.5 })).toBe(0);
+    expect(choiceConfidence({ a: 1, b: 0, c: 0 })).toBe(1);
+  });
+});
+
+describe('SystemOneEngine', () => {
   test('sends the System One request shape and normalizes answers', async () => {
     let sent: { url: string; body: Record<string, unknown>; auth: string | null } | undefined;
-    const engine = new JevEngine({
+    const engine = new SystemOneEngine({
       apiKey: 'test-key',
       fetch: fakeFetch((url, init) => {
         sent = { url, body: JSON.parse(String(init.body)), auth: new Headers(init.headers).get('authorization') };
@@ -101,10 +110,10 @@ describe('JevEngine', () => {
   });
 
   test('HTTP errors and timeouts become DecisionErrors', async () => {
-    const failing = new JevEngine({ apiKey: 'k', fetch: fakeFetch(() => new Response('nope', { status: 401 })) });
+    const failing = new SystemOneEngine({ apiKey: 'k', fetch: fakeFetch(() => new Response('nope', { status: 401 })) });
     await expect(failing.decide(request)).rejects.toBeInstanceOf(DecisionError);
 
-    const slow = new JevEngine({
+    const slow = new SystemOneEngine({
       apiKey: 'k',
       timeoutMs: 20,
       fetch: ((_: string, init: RequestInit) =>
@@ -115,8 +124,21 @@ describe('JevEngine', () => {
     await expect(slow.decide(request)).rejects.toThrow('timed out');
   });
 
-  test('needs a key', () => {
-    expect(() => new JevEngine({ apiKey: '' })).toThrow(DecisionError);
+  test('speaks to any System One server: OpenRouter, or a local one without a key', async () => {
+    const sent: { url: string; auth: string | null }[] = [];
+    const answer = fakeFetch((url, init) => {
+      sent.push({ url, auth: new Headers(init.headers).get('authorization') });
+      return Response.json({ answers: { relevant: { noul: 0.8 }, next: { choice: 'Open mouse history', probabilities: { 'Open mouse history': 1 } }, depth: { score: 1, probabilities: { '1': 1 } } } });
+    });
+    const openrouter = new SystemOneEngine({ name: 'openrouter', apiKey: 'or-key', baseUrl: 'https://openrouter.ai/api/', fetch: answer });
+    const ollama = new SystemOneEngine({ name: 'ollama', model: 'tev1', baseUrl: 'http://127.0.0.1:11434', fetch: answer });
+    expect((await openrouter.decide(request)).engine).toBe('openrouter');
+    const local = await ollama.decide(request);
+    expect(local).toMatchObject({ engine: 'ollama', model: 'tev1' });
+    expect(sent).toEqual([
+      { url: 'https://openrouter.ai/api/v1/systemone', auth: 'Bearer or-key' },
+      { url: 'http://127.0.0.1:11434/v1/systemone', auth: null },
+    ]);
   });
 
   test('tolerates the older noul field name and missing confidence', () => {
@@ -125,18 +147,86 @@ describe('JevEngine', () => {
       { a: { type: 'noul', instructions: '?' }, b: { type: 'choice', instructions: '?', criteria: { x: null, y: null } } },
     );
     expect(answers.a).toEqual({ type: 'noul', noul: 0.4 });
-    expect(answers.b).toEqual({ type: 'choice', choice: 'y', probabilities: { x: 0.3, y: 0.7 }, confidence: 0.7 });
+    expect(answers.b).toMatchObject({ type: 'choice', choice: 'y', probabilities: { x: 0.3, y: 0.7 } });
+    expect((answers.b as { confidence: number }).confidence).toBeCloseTo(0.4, 9);
   });
 });
 
-describe('FallbackEngine', () => {
-  test('answers from the backup when the primary fails, and says why', async () => {
-    const broken: DecisionEngine = {
-      name: 'jev',
-      decide: () => Promise.reject(new DecisionError('Jev timed out after 2500 ms')),
-    };
-    const res = await new FallbackEngine(broken, new LocalEngine()).decide(request);
+describe('CascadeEngine', () => {
+  const broken = (name: string): DecisionEngine => ({ name, decide: () => Promise.reject(new DecisionError(`${name} timed out after 2500 ms`)) });
+  /** An engine that answers every choice with one option at a fixed confidence, after `ms`. */
+  const sure = (name: string, confidence: number, ms = 0): DecisionEngine => ({
+    name,
+    decide: async (req) => {
+      if (ms) await Bun.sleep(ms);
+      return {
+        engine: name,
+        latencyMs: ms,
+        answers: Object.fromEntries(
+          Object.entries(req.questions).map(([k, q]) => {
+            const options = q.type === 'choice' ? Object.keys(q.criteria) : [];
+            return [k, q.type === 'choice' ? { type: 'choice' as const, choice: options[0]!, probabilities: { [options[0]!]: confidence }, confidence } : { type: 'noul' as const, noul: 0.5 }];
+          }),
+        ),
+      };
+    },
+  });
+  const choice: DecisionRequest = { state: {}, questions: { next: { type: 'choice', instructions: 'pick', criteria: { a: null, b: null } } } };
+
+  test('answers from the next engine when one fails, and says why', async () => {
+    const res = await new CascadeEngine([broken('jev'), broken('openrouter'), new LocalEngine()]).decide(request);
     expect(res.engine).toBe('local');
-    expect(res.fallbackReason).toContain('timed out');
+    expect(res.fallbackReason).toContain('jev: jev timed out');
+    expect(res.fallbackReason).toContain('openrouter: openrouter timed out');
+  });
+
+  test('starts the next model alongside a slow one, and the first answer wins', async () => {
+    const res = await new CascadeEngine([sure('jev', 0.9, 400), sure('openrouter', 0.9, 10), new LocalEngine()], { hedgeMs: 30 }).decide(choice);
+    expect(res.engine).toBe('openrouter');
+    expect(res.fallbackReason).toBe('jev: slower than openrouter');
+    expect(res.latencyMs).toBeLessThan(300);
+    const fast = await new CascadeEngine([sure('jev', 0.9, 5), sure('openrouter', 0.9, 5), new LocalEngine()], { hedgeMs: 200 }).decide(choice);
+    expect(fast.engine).toBe('jev');
+    expect(fast.fallbackReason).toBeUndefined();
+    // The next model started alongside a slow first one, and lost: nothing fell back.
+    const overtaken = await new CascadeEngine([sure('jev', 0.9, 60), sure('openrouter', 0.9, 400), new LocalEngine()], { hedgeMs: 20 }).decide(choice);
+    expect(overtaken.engine).toBe('jev');
+    expect(overtaken.fallbackReason).toBeUndefined();
+  });
+
+  test('the code engine answers when the models run out of time', async () => {
+    const t0 = performance.now();
+    const res = await new CascadeEngine([sure('jev', 0.9, 1000), new LocalEngine()], { budgetMs: 60, escalate: sure('strong', 0.99) }).decide(request);
+    expect(res.engine).toBe('local');
+    expect(res.fallbackReason).toBe('jev: no answer within 60 ms');
+    expect(performance.now() - t0).toBeLessThan(400);
+    // Every model failed, so the strong one is not tried either.
+    expect(res.escalated).toBeUndefined();
+  });
+
+  test('asks a stronger model about unsure choices, and keeps its answer only when it is surer', async () => {
+    const escalated = await new CascadeEngine([sure('jev', 0.4)], { escalate: sure('strong', 0.9) }).decide(choice);
+    expect(escalated.answers.next).toMatchObject({ confidence: 0.9 });
+    expect(escalated.escalated).toEqual({ engine: 'strong', model: undefined, questions: ['next'] });
+    const kept = await new CascadeEngine([sure('jev', 0.4)], { escalate: sure('weaker', 0.3) }).decide(choice);
+    expect(kept.answers.next).toMatchObject({ confidence: 0.4 });
+    expect(kept.escalated).toBeUndefined();
+    const confident = await new CascadeEngine([sure('jev', 0.8)], { escalate: broken('strong') }).decide(choice);
+    expect(confident.answers.next).toMatchObject({ confidence: 0.8 });
+  });
+
+  test('a strong model that is too slow leaves the first answer standing, within the budget', async () => {
+    const t0 = performance.now();
+    const res = await new CascadeEngine([sure('jev', 0.4, 5), new LocalEngine()], { escalate: sure('strong', 0.99, 1000), budgetMs: 300 }).decide(choice);
+    expect(res).toMatchObject({ engine: 'jev', answers: { next: { confidence: 0.4 } } });
+    expect(res.escalated).toBeUndefined();
+    expect(performance.now() - t0).toBeLessThan(600);
+  });
+
+  test('never escalates a batch of yes/no questions', async () => {
+    let asked = 0;
+    const strong: DecisionEngine = { name: 'strong', decide: async (r) => (asked++, sure('strong', 0.9).decide(r)) };
+    await new CascadeEngine([sure('jev', 0.4)], { escalate: strong }).decide({ state: {}, questions: { post_0: { type: 'noul', instructions: 'is it?' } } });
+    expect(asked).toBe(0);
   });
 });

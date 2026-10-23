@@ -1,16 +1,18 @@
 # Context: Notes on a context harness · Margins
-http://127.0.0.1:52089/article.html
+http://127.0.0.1:61975/article.html
 
-**What I'm trying to do** (inferred · 95%): decision latency
+**What I'm trying to do** (inferred · 98%): decision latency
 - searched “decision latency” · just now
-- clicked “Notes on a context harness” · just now
-- reading “Notes on a context harness” · just now
 
 **How I got here:** searched “decision latency” → on “decision latency - Seek” → clicked “Notes on a context harness”
 
-## Passages I read closely
-- (5 s) A harness therefore has to plan its time the way a game engine plans a frame. Reading the page, updating the record, guessing the intent and ranking what is on screen all have to fit inside the same small window, with room left over for whatever goes wrong. The split below is the one we aim for in…
-- (5 s) That threshold is why decision latency matters more to an interface than raw intelligence. A suggestion that arrives in three hundred milliseconds can sit inside the gesture that triggered it. The same suggestion arriving in four seconds has to live somewhere else, usually in a chat panel beside…
+## Before this
+1. searched “decision latency” (127.0.0.1)
+2. searched “decision latency” (127.0.0.1)
+
+## What I did on this page
+- read closely (5 s): A harness therefore has to plan its time the way a game engine plans a frame. Reading the page, updating the record, guessing the intent and ranking what is on screen all have to fit inside the same small window, with room left over for whatever goes wrong. The split below is the one we aim for in…
+- read closely (5 s): That threshold is why decision latency matters more to an interface than raw intelligence. A suggestion that arrives in three hundred milliseconds can sit inside the gesture that triggered it. The same suggestion arriving in four seconds has to live somewhere else, usually in a chat panel beside…
 
 ## Most relevant on this page
 ### System One decisions
@@ -38,8 +40,5 @@ In the early 1980s, researchers studying interactive terminals noticed something
   - Footnotes
     - Related reading
 
-## Before this
-- decision latency - Seek (127.0.0.1)
-
 ---
-Shared by Tacit · ~590 tokens instead of ~4240 for the whole page
+Shared by Tacit · ~584 tokens instead of ~4240 for the whole page

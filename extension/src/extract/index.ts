@@ -1,6 +1,8 @@
 import { extractFeed, isFeed, type FeedMemory } from './feed';
 import { extractGeneric, type Extracted } from './generic';
 
+export { isWall } from './generic';
+
 export type { Extracted } from './generic';
 export { POST, newFeedMemory, type FeedMemory } from './feed';
 

@@ -15,12 +15,21 @@ export type ToBackground =
   | { type: 'intent:state'; visitId: string; text: string }
   | { type: 'decide'; request: DecisionRequest }
   | { type: 'ledger'; entry: LedgerEntry }
-  | { type: 'status' };
+  | { type: 'status' }
+  /** From the harness's pairing page: a token to check and keep. */
+  | { type: 'pair'; token: string }
+  | { type: 'open-dashboard' }
+  /** The `claude mcp add` command for this machine, from the harness. */
+  | { type: 'connect-command' };
 
 export interface HarnessStatus {
   connected: boolean;
-  engine: 'jev' | 'local';
+  /** Whether this browser holds a token for the harness (`bun run pair`). */
+  paired: boolean;
+  /** The first engine the harness asks: "jev", "openrouter", … or "local", its code engine. */
+  engine: string;
   model?: string;
+  label?: string;
 }
 
 export interface VisitStartReply {

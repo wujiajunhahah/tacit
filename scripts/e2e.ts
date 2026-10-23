@@ -7,10 +7,10 @@ import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { Page } from 'playwright';
-import { HARNESS_ORIGIN, HARNESS_PORT } from '../core';
+import { HARNESS_ORIGIN, HARNESS_PORT, authHeader, type Block, type CurrentContextResponse } from '../core';
 import { startHarness } from '../daemon/server';
 import { startDemo } from '../demo/serve';
-import { capsuleText, launch, openSlip, ROOT, searchThenOpen as openFrom } from './browser';
+import { capsuleText, launch, openSlip, pairWith, ROOT, searchThenOpen as openFrom } from './browser';
 
 const headed = process.argv.includes('--headed');
 const live = process.argv.includes('--live');
@@ -57,10 +57,23 @@ const scrollY = (page: Page) => page.evaluate(() => Math.round(window.scrollY));
 const toastText = (page: Page) => page.locator('tacit-capsule .tc[data-note] .line').innerText().then((s) => s.replace(/\s+/g, ' ').trim());
 
 async function api<T>(path: string): Promise<T> {
-  return (await fetch(`${HARNESS_ORIGIN}${path}`)).json() as Promise<T>;
+  return (await fetch(`${HARNESS_ORIGIN}${path}`, { headers: authHeader(harness.token) })).json() as Promise<T>;
 }
 
 const searchThenOpen = (page: Page, query: string, target: string) => openFrom(page, site, query, target);
+
+async function searchFlow(page: Page): Promise<void> {
+  await page.goto(`${site}/search.html?q=decision+latency`);
+  const line = await capsuleText(page);
+  let blocks: Block[] = [];
+  for (let i = 0; i < 10 && blocks.length < 5; i++) {
+    await page.waitForTimeout(300);
+    blocks = (await api<CurrentContextResponse>('/v1/context/current')).page?.blocks ?? [];
+  }
+  check('search: the results are read as results, title and snippet each', blocks.length >= 5 && blocks.every((b) => b.kind === 'item') && blocks[0]!.text.includes(' — '), `${blocks.length} · ${blocks[0]?.text.slice(0, 60)}`);
+  const titles = blocks.map((b) => b.text.split(' — ')[0]!.slice(0, 24));
+  check('search: the next step opens a result, never scrolls to one or searches again', /^Open /.test(line) && titles.some((t) => line.includes(t)), line);
+}
 
 async function articleFlow(page: Page): Promise<void> {
   await searchThenOpen(page, 'decision latency', 'article.html');
@@ -110,7 +123,7 @@ async function articleFlow(page: Page): Promise<void> {
   const packet = await page.evaluate(() => navigator.clipboard.readText());
   check('handoff: ⌥⇧C puts a context packet on the clipboard', packet.startsWith('# Context: '), packet.split('\n')[0] ?? '');
   check('handoff: the packet says how you got here', packet.includes('searched “decision latency”'));
-  const lingered = packet.split('## Passages I read closely')[1]?.split('\n##')[0]?.trim() ?? '';
+  const lingered = packet.split('\n').filter((l) => l.startsWith('- read closely')).join('\n');
   check('handoff: the packet has the passage you lingered on', /latency|milliseconds/i.test(lingered), lingered.split('\n')[0]?.slice(0, 90) ?? 'none');
   const m = packet.match(/~(\d+) tokens instead of ~(\d+)/);
   check('handoff: the packet is smaller than the page', !!m && Number(m[1]) < Number(m[2]), m ? `${m[1]} vs ${m[2]} tokens` : 'no token line');
@@ -189,7 +202,10 @@ async function dashboardFlow(page: Page): Promise<void> {
 
   // Deleting a page in the dashboard reaches the extension's own copy of the trail.
   const serp = (await api<{ visit: { url: string } }[]>('/v1/trail?limit=50')).find((t) => t.visit.url.includes('search.html?q=decision'))!.visit.url;
-  const status = await page.evaluate((u) => fetch(`/v1/page?url=${encodeURIComponent(u)}`, { method: 'DELETE' }).then((r) => r.status), serp);
+  const status = await page.evaluate(
+    (u) => fetch(`/v1/page?url=${encodeURIComponent(u)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${localStorage.getItem('tacit.token')}` } }).then((r) => r.status),
+    serp,
+  );
   const popup = await b.context.newPage();
   await popup.goto(`chrome-extension://${b.extensionId}/popup.html`);
   await popup.waitForTimeout(1500);
@@ -312,7 +328,7 @@ async function pointerFlow(): Promise<void> {
     await page.waitForTimeout(500);
     const md = await page.evaluate(() => navigator.clipboard.readText());
     const passage = (await para.innerText()).slice(0, 40);
-    check('pointer: the passage the pointer rested on is in the packet', md.includes('## Passages I read closely') && md.includes(passage), passage);
+    check('pointer: the passage the pointer rested on is in the packet', md.split('\n').some((l) => l.startsWith('- read closely') && l.includes(passage)), passage);
   } finally {
     await b.close();
   }
@@ -372,8 +388,13 @@ const b = await launch({ headless: !headed });
 const errors: string[] = [];
 b.worker.on('console', (m) => m.type() === 'error' && !m.text().includes('ERR_CONNECTION_REFUSED') && errors.push(`[worker] ${m.text()}`));
 try {
+  const paired = await pairWith(b, harness.token);
+  check('pairing: the extension and the dashboard pair through the pairing page', paired.startsWith('This browser is paired'), paired);
+  const stranger = await fetch(`${HARNESS_ORIGIN}/v1/trail`).then((r) => r.status);
+  check('pairing: without the token the ledger stays closed', stranger === 401, `${stranger}`);
   const page = await b.context.newPage();
   page.on('pageerror', (e) => errors.push(`[page] ${e.message}`));
+  await searchFlow(page);
   await articleFlow(page);
   await feedFlow(page);
   await repoFlow(page);

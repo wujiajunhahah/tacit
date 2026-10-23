@@ -9,6 +9,7 @@ import type {
   ArrivalKind,
   Block,
   BlockKind,
+  BriefRequest,
   Click,
   DecideRequest,
   IngestEvent,
@@ -180,6 +181,8 @@ const QuestionSchema: z.ZodType<Question> = z.discriminatedUnion('type', [
   }),
   z.looseObject({ type: z.literal('score'), instructions, criteria: z.array(text).min(2).max(10) }),
 ]);
+
+export const BriefSchema: z.ZodType<BriefRequest> = z.strictObject({ prompt: z.string().max(20_000).optional() });
 
 export const DecideSchema: z.ZodType<DecideRequest> = z.looseObject({
   state: z.unknown(),

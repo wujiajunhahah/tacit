@@ -3,13 +3,11 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { ConnectResponse } from '../core';
-import type { EngineChoice } from './engine';
+import { agentLine, shellQuote, tacitCommand, tacitName } from './agents';
+import { MODELS_FILE, type EngineChoice } from './engine';
+import { tilde } from './units';
 
 export const MCP_PATH = join(import.meta.dir, 'mcp.ts');
-
-function shellQuote(s: string): string {
-  return /^[\w./:@%+=-]+$/.test(s) ? s : `'${s.replaceAll("'", `'\\''`)}'`;
-}
 
 const isDefaultHome = (home: string) => home === join(homedir(), '.tacit');
 
@@ -25,10 +23,15 @@ export function claudeAddArgs(home: string, runtime = process.execPath): string[
 
 export function connectInfo(engine: EngineChoice, home: string, runtime = process.execPath): ConnectResponse {
   const env = isDefaultHome(home) ? undefined : { TACIT_HOME: home };
+  const cli = tacitCommand(home, runtime).map(shellQuote).join(' ');
   return {
     engine: engine.name,
     model: engine.model,
+    decisions: engine.decisions,
+    modelsFile: tilde(join(home, MODELS_FILE)),
     mcpPath: MCP_PATH,
+    cli,
+    agentLine: agentLine(tacitName(home, runtime)),
     claudeCommand: ['claude', ...claudeAddArgs(home, runtime)].map(shellQuote).join(' '),
     mcpConfig: { mcpServers: { tacit: { command: runtime, args: [MCP_PATH], ...(env ? { env } : {}) } } },
   };

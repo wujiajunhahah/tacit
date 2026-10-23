@@ -8,8 +8,12 @@ const REGION_PRIOR: Record<Region, number> = { main: 0.5, unknown: 0, aside: -0.
 const NOISE_LABEL =
   /^(sign ?in|log ?in|sign ?up|register|cookie|privacy|terms|accept|subscribe|menu|skip to|share|登录|注册|隐私|条款|分享)/i;
 
-/** Sections that point elsewhere rather than answer anything. */
-const BOILERPLATE = /^(related( reading| posts| articles)?|further reading|see also|references?|footnotes?|notes|read more|recommended|popular posts|more from|comments?|share|相关阅读|延伸阅读|推荐阅读|参考资料|参考文献|参考|注释|评论)\b/i;
+/**
+ * Sections that point elsewhere rather than answer anything. It ends on "no letter or digit next", not `\b`: `\b` knows
+ * only ASCII, so 参考文献 never matched, and a Chinese article's English citations could outrank its text.
+ */
+const BOILERPLATE =
+  /^(related( reading| posts| articles)?|further reading|see also|references?|footnotes?|notes|external links|bibliography|read more|recommended|popular posts|more from|comments?|share|相关阅读|相關閱讀|延伸阅读|延伸閱讀|推荐阅读|推薦閱讀|参考资料|參考資料|参考文献|參考文獻|参考书目|參考書目|参见|參見|外部链接|外部連結|注释|註釋|脚注|腳註|评论|評論|関連項目|外部リンク|参考)(?![\p{L}\p{N}])/iu;
 const BOILERPLATE_DAMP = 0.25;
 
 /** Score below which "none of these" wins. Tuned so a single weak context match asks instead of acting. */
@@ -38,8 +42,15 @@ function reasonsFor(matched: [string, number][], section?: string, sectionTokens
   return reasons;
 }
 
-/** Every block with its relevance to the intent, in page order. */
-export function rankBlocks(blocks: Block[], intent: Intent): Ranked<Block>[] {
+/** The intent as it reads on one site: the words that only name the site are set aside. */
+export function onSite(intent: Intent, site?: ReadonlySet<string>): Intent {
+  if (!site?.size || !Object.keys(intent.terms).some((t) => site.has(t))) return intent;
+  return { ...intent, terms: Object.fromEntries(Object.entries(intent.terms).filter(([t]) => !site.has(t))) };
+}
+
+/** Every block with its relevance to the intent, in page order. `site` names the site's own words (siteTerms). */
+export function rankBlocks(blocks: Block[], wanted: Intent, site?: ReadonlySet<string>): Ranked<Block>[] {
+  const intent = onSite(wanted, site);
   if (blocks.length === 0 || !hasQuery(intent)) {
     return blocks.map((b) => ({ item: b, score: 0, p: 0, relevance: 0, reasons: [] }));
   }
@@ -71,11 +82,12 @@ export function topBlocks(ranked: Ranked<Block>[], k: number, minRelevance = 0.3
     .slice(0, k);
 }
 
-/** "Jump to" actions for the best sections, so an answer is one keystroke away. */
+/** "Jump to" actions for the best sections, so an answer is one keystroke away. References are never one. */
 export function jumpActions(ranked: Ranked<Block>[], k = 2): Action[] {
   const out: Action[] = [];
   const seen = new Set<string>();
   for (const r of topBlocks(ranked, 12, 0.5)) {
+    if (BOILERPLATE.test(r.item.section.trim())) continue;
     const key = r.item.section || r.item.id;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -100,7 +112,8 @@ export interface ActionRanking {
   confidence: number;
 }
 
-export function rankActions(actions: Action[], intent: Intent, topK = 8): ActionRanking {
+export function rankActions(actions: Action[], wanted: Intent, topK = 8, site?: ReadonlySet<string>): ActionRanking {
+  const intent = onSite(wanted, site);
   const usable = actions.filter((a) => a.label.trim().length >= 2);
   if (usable.length === 0 || !hasQuery(intent)) return { ranked: [], none: 1, confidence: 0 };
 

@@ -1,38 +1,35 @@
 {
   "name": "tacit",
   "version": "0.2.0",
-  "private": true,
-  "type": "module",
   "description": "Your agent should already know what you are looking at. A local context harness for the browser, with an MCP server.",
+  "type": "module",
+  "private": true,
   "license": "MIT",
-  "author": "Wu JiaJun",
-  "homepage": "https://github.com/wujiajunhahah/tacit#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/wujiajunhahah/tacit.git"
   },
-  "bugs": {
-    "url": "https://github.com/wujiajunhahah/tacit/issues"
+  "homepage": "https://github.com/wujiajunhahah/tacit#readme",
+  "bin": {
+    "tacit": "daemon/cli.ts"
   },
-  "keywords": [
-    "mcp",
-    "model-context-protocol",
-    "claude-code",
-    "cursor",
-    "ai-agents",
-    "browser-extension",
-    "context",
-    "local-first"
-  ],
   "scripts": {
     "build": "bun run scripts/build.ts",
     "test": "bun test test/core test/extension test/daemon",
     "setup": "bun run scripts/setup.ts",
+    "pair": "bun run scripts/pair.ts",
+    "events": "bun run scripts/events.ts",
+    "service": "bun run scripts/service.ts",
+    "keys": "bun run scripts/keys.ts",
+    "models": "bun run scripts/models.ts",
     "harness": "bun run daemon/server.ts",
     "mcp": "bun run daemon/mcp.ts",
+    "tacit": "bun run daemon/cli.ts",
     "demo": "bun run demo/serve.ts",
     "e2e": "bun run scripts/e2e.ts",
     "e2e:web": "bun run scripts/e2e-web.ts",
+    "live": "bun run scripts/live.ts",
+    "agents:check": "bun run scripts/agents-check.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "record": "bun run scripts/record.ts",
     "smoke": "bun run scripts/smoke.ts",
@@ -47,5 +44,19 @@
     "@types/chrome": "^0.3.5",
     "playwright": "1.64.1",
     "typescript": "^7.0.2"
-  }
+  },
+  "author": "Wu JiaJun",
+  "bugs": {
+    "url": "https://github.com/wujiajunhahah/tacit/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude-code",
+    "cursor",
+    "ai-agents",
+    "browser-extension",
+    "context",
+    "local-first"
+  ]
 }

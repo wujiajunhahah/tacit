@@ -5,14 +5,18 @@ Captured by `bun run e2e` after the demo flows.
 ## tacit_current_context
 
 # Context: tacit-labs/reflex: Calibrated reflexes for interfaces · Codeyard
-http://127.0.0.1:52089/repo.html
+http://127.0.0.1:61975/repo.html
 
 **What I'm trying to do** (inferred · 90%): install reflex
 - searched “install reflex” · just now
-- searched “agent context copy paste” · just now
-- clicked “tacit-labs/reflex: Calibrated reflexes for interfaces” · just now
 
 **How I got here:** searched “install reflex” → on “install reflex - Seek” → clicked “tacit-labs/reflex: Calibrated reflexes for interfaces”
+
+## Before this
+1. read “Notes on a context harness · Margins” (127.0.0.1 · 14 s, read 2 passages closely)
+2. searched “agent context copy paste” (127.0.0.1)
+3. read “Home / Murmur” (127.0.0.1)
+4. searched “install reflex” (127.0.0.1)
 
 ## Most relevant on this page
 ### reflex
@@ -38,14 +42,8 @@ git clone https://example.com/tacit-labs/reflex.git cd reflex bun install bun ru
   - Contributing
   - License
 
-## Before this
-- install reflex - Seek (127.0.0.1)
-- Home / Murmur (127.0.0.1)
-- agent context copy paste - Seek (127.0.0.1)
-- Notes on a context harness · Margins (127.0.0.1) · read 14 s
-
 ---
-Shared by Tacit · ~308 tokens instead of ~575 for the whole page
+Shared by Tacit · ~288 tokens instead of ~575 for the whole page
 
 ## tacit_intent
 
@@ -71,13 +69,13 @@ Other readings:
 3 pages the user read match “decision latency”, best first:
 
 1. tacit-labs/reflex: Calibrated reflexes for interfaces · Codeyard (127.0.0.1 · last seen just now)
-   http://127.0.0.1:52089/repo.html
+   http://127.0.0.1:61975/repo.html
    import { choose } from '@tacit-labs/reflex'; const result = choose({ state: 'Searched "decision latency", opened an essay', options: [ { id: 'latency', label: 'Latency: why 400 ms matters' }, { id:…
 
 2. Notes on a context harness · Margins (127.0.0.1 · last seen just now)
-   http://127.0.0.1:52089/article.html
+   http://127.0.0.1:61975/article.html
    09:14:02 search "decision latency" seek 09:14:09 follow "Latency: why 400 ms matters" margins 09:14:41 select "below a certain delay a tool disappears" 09:15:30 dwell latency-why-400-ms-matters 48 s…
 
 3. Home / Murmur (127.0.0.1 · last seen just now)
-   http://127.0.0.1:52089/feed.html
+   http://127.0.0.1:61975/feed.html
    p95 decision latency dropped from 610 ms to 290 ms after we stopped re-tokenizing the whole page on every scroll event. Profile before you optimize, then profile again.
