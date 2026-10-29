@@ -142,7 +142,9 @@ describe('bun run setup', () => {
 
   test('a dry run writes no agent files', () => {
     const r = setup(['--dry-run'], { agents: ['codex', 'gemini', 'opencode'] });
-    for (const dir of ['.claude', '.codex', '.gemini', '.config', '.bun']) expect(existsSync(join(home, dir))).toBe(false);
+    // The files setup would write, not whole folders: Bun keeps its own cache under HOME on Linux.
+    const writes = ['.claude/settings.json', '.claude/skills/tacit/SKILL.md', '.codex/hooks.json', '.codex/AGENTS.md', '.gemini/settings.json', '.gemini/GEMINI.md', '.config/opencode/plugins/tacit.ts', '.config/opencode/AGENTS.md', '.bun/bin/tacit'];
+    expect(writes.filter((file) => existsSync(join(home, file)))).toEqual([]);
     expect(r.text).toContain('Codex: add a note before prompts that need one');
   });
 
